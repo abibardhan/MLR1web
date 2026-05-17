@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ML Workbench — Regression Platform</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════
+   ROOT VARIABLES  — Calibri + Indigo palette
+═══════════════════════════════════════════ */
+:root{
+  --bg:       #0e1120;
+  --surface:  #161929;
+  --panel:    #1b1f36;
+  --card:     #202440;
+  --row:      #1e2239;
+  --rowHov:   #262b4a;
+  --border:   #2c3158;
+  --border2:  #373d68;
+
+  --indigo:   #6366f1;
+  --indigoL:  #818cf8;
+  --indigoD:  #4338ca;
+  --purple:   #8b5cf6;
+  --cyan:     #06b6d4;
+  --green:    #10b981;
+  --amber:    #f59e0b;
+  --red:      #ef4444;
+  --pink:     #ec4899;
+
+  --blue:     #3b82f6;
+  --blueL:    #60a5fa;
+
+  --text:     #e2e8f0;
+  --muted:    #94a3b8;
+  --faint:    #475569;
+  --dim:      #334155;
+
+  --font: Calibri, 'Gill Sans MT', 'Trebuchet MS', Arial, sans-serif;
+  --mono: 'Consolas', 'Courier New', monospace;
+}
+
+/* ── RESET ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{height:100%;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font);
+  font-size:13px;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--faint);}
+input,select,button{font-family:var(--font);}
+
+/* ── HEADER ── */
+.hdr{
+  background:linear-gradient(90deg,#12163a 0%,#1a1e40 100%);
+  border-bottom:2px solid var(--indigo);
+  padding:0 20px;
+  height:50px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-shrink:0;
+  position:sticky;top:0;z-index:200;
+}
+.hdr-logo{
+  display:flex;align-items:center;gap:10px;
+  font-size:16px;font-weight:700;color:#fff;letter-spacing:.02em;
+}
+.hdr-icon{
+  width:30px;height:30px;border-radius:8px;
+  background:linear-gradient(135deg,var(--indigo),var(--purple));
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+}
+.hdr-right{display:flex;align-items:center;gap:14px;}
+.status-pill{
+  padding:3px 12px;border-radius:20px;font-size:10px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;
+  display:flex;align-items:center;gap:6px;
+  border:1px solid var(--border2);color:var(--muted);
+}
+.status-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--faint);}
+.status-pill.ready{color:var(--green);border-color:#10b98155;}
+.status-pill.ready .dot{background:var(--green);box-shadow:0 0 6px var(--green);}
+.status-pill.training{color:var(--indigo);border-color:#6366f155;}
+.status-pill.training .dot{background:var(--indigo);animation:blink .5s infinite;}
+.status-pill.error{color:var(--red);border-color:#ef444455;}
+.status-pill.error .dot{background:var(--red);}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.2;}}
+
+/* ── TAB BAR ── */
+.tabbar{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;
+  padding:0 20px;height:38px;flex-shrink:0;
+  gap:2px;
+}
+.tab{
+  padding:0 20px;height:100%;
+  font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--faint);background:none;border:none;
+  border-bottom:2px solid transparent;cursor:pointer;
+  transition:all .2s;display:flex;align-items:center;gap:7px;
+}
+.tab:hover{color:var(--muted);}
+.tab.active{color:var(--indigo);border-bottom-color:var(--indigo);}
+.tab .ti{
+  width:18px;height:18px;border-radius:5px;background:var(--dim);
+  color:var(--muted);font-size:10px;display:flex;align-items:center;justify-content:center;
+}
+.tab.active .ti{background:#6366f122;color:var(--indigo);}
+
+/* ── PAGES ── */
+.page{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.page.active{display:flex;}
+
+/* ══════════════════════════════════════
+   WORKBENCH PAGE — Left+Right+Bottom
+══════════════════════════════════════ */
+.workspace{
+  display:flex;
+  flex:1;
+  overflow:hidden;
+  min-height:0;
+}
+
+/* ── LEFT PANEL ── */
+.left-panel{
+  width:268px;
+  flex-shrink:0;
+  background:var(--panel);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  overflow-y:auto;
+  overflow-x:hidden;
+}
+.lp-section{
+  padding:12px 14px;
+  border-bottom:1px solid var(--border);
+}
+.lp-title{
+  font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--indigo);margin-bottom:10px;
+  display:flex;align-items:center;gap:6px;
+}
+.lp-title::before{content:'';width:2px;height:10px;background:var(--indigo);border-radius:2px;}
+
+/* Radio split cards */
+.split-opts{display:flex;flex-direction:column;gap:6px;}
+.split-opt{
+  border:1px solid var(--border);border-radius:7px;
+  padding:8px 10px;cursor:pointer;transition:all .2s;
+  display:flex;align-items:flex-start;gap:8px;
+}
+.split-opt:hover{border-color:var(--border2);}
+.split-opt:has(input:checked){border-color:var(--indigo);background:#6366f10e;}
+.split-opt input{accent-color:var(--indigo);margin-top:1px;flex-shrink:0;}
+.split-opt .so-t{font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.split-opt .so-d{font-size:10px;color:var(--muted);}
+
+/* File drop zone */
+.dz{
+  border:1.5px dashed var(--border2);border-radius:8px;
+  padding:16px 10px;text-align:center;cursor:pointer;
+  transition:all .2s;position:relative;background:var(--bg);
+}
+.dz:hover,.dz.over{border-color:var(--indigo);background:#6366f10a;}
+.dz input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.dz-icon{font-size:22px;margin-bottom:5px;}
+.dz-lbl{font-size:12px;font-weight:600;color:var(--text);}
+.dz-hint{font-size:10px;color:var(--muted);margin-top:3px;}
+.fbadge{
+  display:inline-flex;align-items:center;gap:5px;margin-top:8px;
+  padding:3px 9px;border-radius:12px;
+  background:#6366f122;border:1px solid var(--indigo);
+  color:var(--indigoL);font-size:10px;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.g2-small{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.g3-small{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+
+/* Form elements */
+.flbl{font-size:10px;color:var(--muted);margin-bottom:3px;display:block;}
+.finp,select.finp{
+  width:100%;padding:5px 8px;
+  background:var(--bg);border:1px solid var(--border2);
+  border-radius:5px;color:var(--text);
+  font-family:var(--font);font-size:12px;
+  outline:none;transition:border-color .2s;
+  -webkit-appearance:none;
+}
+.finp:focus,select.finp:focus{border-color:var(--indigo);}
+select.finp option{background:var(--panel);}
+.fg{margin-bottom:8px;}
+
+/* Scaler toggle row */
+.scaler-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 10px;background:var(--bg);border:1px solid var(--border);
+  border-radius:7px;
+}
+.scaler-row .sr-info .sr-t{font-size:12px;font-weight:600;}
+.scaler-row .sr-info .sr-d{font-size:10px;color:var(--muted);margin-top:1px;}
+
+/* Toggle switch */
+.tgl{position:relative;width:36px;height:20px;flex-shrink:0;}
+.tgl input{opacity:0;width:0;height:0;}
+.tgl-sl{position:absolute;inset:0;background:var(--border2);border-radius:20px;cursor:pointer;transition:.2s;}
+.tgl-sl::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:var(--muted);border-radius:50%;transition:.2s;}
+.tgl input:checked+.tgl-sl{background:var(--indigo);}
+.tgl input:checked+.tgl-sl::before{transform:translateX(16px);background:#fff;}
+
+/* Console (mini) */
+.mini-con{
+  margin:0;
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;
+  padding:8px 10px;font-family:var(--mono);font-size:10px;
+  height:110px;overflow-y:auto;line-height:1.7;
+}
+.ll{color:var(--faint);}.lo{color:var(--green);}.le{color:var(--red);}.li{color:var(--indigoL);}.lw{color:var(--amber);}
+
+/* Progress */
+.pbar{background:var(--border);border-radius:3px;height:5px;overflow:hidden;margin:6px 0;}
+.pfill{height:100%;background:linear-gradient(90deg,var(--indigo),var(--purple));border-radius:3px;transition:width .3s ease;}
+
+/* Train button area */
+.train-area{
+  padding:12px 14px;background:var(--panel);
+  border-top:1px solid var(--border);margin-top:auto;
+}
+.btn-train{
+  width:100%;padding:11px;border-radius:8px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--indigo),var(--purple));
+  color:#fff;font-family:var(--font);font-size:13px;font-weight:700;
+  letter-spacing:.04em;transition:all .2s;
+}
+.btn-train:hover{filter:brightness(1.1);box-shadow:0 4px 18px #6366f155;}
+.btn-train:disabled{opacity:.4;cursor:not-allowed;filter:none;box-shadow:none;}
+.btn-stop{
+  width:100%;margin-top:6px;padding:7px;border-radius:7px;border:1px solid var(--border2);
+  cursor:pointer;background:transparent;color:var(--muted);
+  font-family:var(--font);font-size:11px;font-weight:600;transition:all .2s;
+}
+.btn-stop:hover:not(:disabled){border-color:var(--red);color:var(--red);}
+.btn-stop:disabled{opacity:.3;cursor:not-allowed;}
+.prog-info{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* ── RIGHT PANEL (MODEL LIST) ── */
+.right-panel{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  background:var(--surface);
+}
+.rp-toolbar{
+  padding:8px 14px;
+  background:var(--panel);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+  flex-shrink:0;
+}
+.rp-toolbar .rp-title{
+  font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--purple);margin-right:4px;
+}
+.btn-sm{
+  padding:4px 10px;border-radius:5px;border:1px solid var(--border2);
+  cursor:pointer;background:transparent;color:var(--muted);
+  font-family:var(--font);font-size:10px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;transition:all .2s;
+}
+.btn-sm:hover{border-color:var(--indigo);color:var(--indigoL);}
+.en-count{font-size:11px;color:var(--muted);margin-left:auto;}
+.en-count span{color:var(--indigo);font-weight:700;}
+
+/* MODEL ROWS */
+.model-list{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:6px 10px;
+}
+.model-row{
+  display:flex;align-items:center;
+  padding:6px 10px;
+  border-radius:7px;
+  border:1px solid transparent;
+  margin-bottom:4px;
+  background:var(--row);
+  transition:all .15s;
+  gap:8px;
+  min-height:36px;
+  border-left:3px solid transparent;
+}
+.model-row:hover{background:var(--rowHov);}
+.model-row.on{border-left-color:var(--border2);}
+.model-row.off{opacity:.4;}
+
+/* Category accent colors on left border when enabled */
+.model-row.on.cat-ln{border-left-color:var(--blue);}
+.model-row.on.cat-tr{border-left-color:var(--green);}
+.model-row.on.cat-bo{border-left-color:var(--amber);}
+.model-row.on.cat-fo{border-left-color:var(--cyan);}
+.model-row.on.cat-ot{border-left-color:var(--purple);}
+
+.m-badge{
+  font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;
+  letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;flex-shrink:0;
+}
+.tln{background:#1d2d4a;color:#60a5fa;}
+.ttr{background:#14311f;color:#34d399;}
+.tbo{background:#2e1f08;color:#fbbf24;}
+.tfo{background:#0c2230;color:#22d3ee;}
+.tot{background:#261a3a;color:#a78bfa;}
+
+.m-name{
+  font-size:12px;font-weight:600;color:var(--text);
+  width:128px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* Inline params */
+.m-params{display:flex;align-items:center;flex-wrap:nowrap;gap:6px;flex:1;overflow:hidden;}
+.punit{display:inline-flex;align-items:center;gap:3px;flex-shrink:0;}
+.punit .pl{font-size:9px;color:var(--muted);white-space:nowrap;}
+.punit input,.punit select{
+  padding:3px 5px;background:var(--bg);border:1px solid var(--border2);
+  border-radius:4px;color:var(--text);font-family:var(--font);font-size:11px;
+  outline:none;transition:border-color .15s;
+}
+.punit input{width:54px;}
+.punit select{width:70px;-webkit-appearance:none;}
+.punit input:focus,.punit select:focus{border-color:var(--indigo);}
+.m-no-params{font-size:10px;color:var(--faint);font-style:italic;}
+
+/* Data preview table */
+.preview-wrap{overflow:auto;max-height:160px;border:1px solid var(--border);border-radius:6px;margin-top:6px;}
+.preview-wrap table{width:100%;border-collapse:collapse;font-size:10px;}
+.preview-wrap th{padding:5px 8px;background:var(--bg);color:var(--muted);font-size:9px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;}
+.preview-wrap td{padding:4px 8px;border-bottom:1px solid var(--border);color:var(--text);}
+
+/* ══════════════════════════════════════
+   RESULTS SECTION (below workspace)
+══════════════════════════════════════ */
+.results-section{
+  background:var(--bg);
+  border-top:2px solid var(--indigo);
+  padding:16px 18px;
+  overflow-y:auto;
+  flex-shrink:0;
+  max-height:calc(100vh - 88px);
+}
+.res-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;
+}
+.res-title{
+  font-size:14px;font-weight:700;color:var(--text);
+  display:flex;align-items:center;gap:8px;
+}
+.res-title::before{content:'';width:3px;height:16px;background:var(--indigo);border-radius:2px;}
+.dl-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* KPI cards */
+.kpi-grid{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:10px;
+  margin-bottom:14px;
+}
+.kpi-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:8px;padding:12px 14px;
+}
+.kpi-l{font-size:9px;color:var(--faint);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
+.kpi-v{font-size:20px;font-weight:700;line-height:1.1;margin-bottom:3px;}
+.kpi-s{font-size:10px;color:var(--muted);}
+
+/* Charts */
+.chart-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+  margin-bottom:14px;
+}
+.chart-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:8px;padding:12px;
+}
+.chart-card.wide{grid-column:span 2;}
+.ch-title{
+  font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:10px;
+  display:flex;align-items:center;gap:6px;
+}
+.ch-title .ct-dot{width:6px;height:6px;border-radius:50%;}
+.cbox{position:relative;height:210px;}
+
+/* Results table */
+.res-table-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:8px;padding:12px;
+}
+.res-table-wrap{overflow:auto;max-height:320px;}
+.res-table-wrap table{width:100%;border-collapse:collapse;font-size:11px;}
+.res-table-wrap thead tr{background:var(--surface);}
+.res-table-wrap th{
+  padding:8px 12px;text-align:left;
+  font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);border-bottom:1px solid var(--border2);
+  white-space:nowrap;cursor:pointer;user-select:none;
+}
+.res-table-wrap th:hover{color:var(--indigoL);}
+.res-table-wrap tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+.res-table-wrap tbody tr:hover{background:var(--surface);}
+.res-table-wrap tbody tr.best-row{background:#10b98110;}
+.res-table-wrap tbody tr.best-row td:first-child{color:var(--green);font-weight:700;}
+.res-table-wrap td{padding:7px 12px;}
+.bbadge{display:inline-flex;padding:1px 7px;border-radius:3px;background:#10b98122;border:1px solid var(--green);color:var(--green);font-size:9px;margin-left:6px;}
+.ebadge{display:inline-flex;padding:1px 7px;border-radius:3px;background:#ef444422;border:1px solid var(--red);color:var(--red);font-size:9px;}
+.good{color:var(--green);}.ok{color:var(--amber);}.bad{color:var(--red);}
+.filter-inp{
+  padding:5px 10px;background:var(--bg);border:1px solid var(--border2);
+  border-radius:5px;color:var(--text);font-family:var(--font);font-size:11px;
+  outline:none;width:160px;
+}
+.filter-inp:focus{border-color:var(--indigo);}
+.tbl-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.tbl-toolbar .fill{flex:1;}
+
+/* DL buttons */
+.btn-dl{
+  padding:5px 12px;border-radius:5px;border:1px solid var(--border2);
+  cursor:pointer;background:transparent;color:var(--muted);
+  font-family:var(--font);font-size:10px;font-weight:600;
+  transition:all .2s;
+}
+.btn-dl:hover{border-color:var(--green);color:var(--green);}
+
+/* ══════════════════════════════════════
+   CODE PAGE
+══════════════════════════════════════ */
+.code-page{padding:18px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
+.code-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:8px;padding:16px;
+}
+.code-card-title{
+  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--indigo);margin-bottom:12px;
+  display:flex;align-items:center;gap:7px;
+}
+.code-card-title::before{content:'';width:2px;height:11px;background:var(--indigo);border-radius:2px;}
+.cfg-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;font-size:11px;}
+.cfg-item .ci-l{font-size:9px;color:var(--faint);margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em;}
+.cfg-item .ci-v{font-weight:600;color:var(--text);word-break:break-all;}
+.code-toolbar{display:flex;gap:8px;margin-bottom:10px;}
+.btn-code{
+  padding:6px 14px;border-radius:6px;border:none;cursor:pointer;
+  font-family:var(--font);font-size:11px;font-weight:700;
+  letter-spacing:.06em;transition:all .2s;
+}
+.btn-primary{background:linear-gradient(135deg,var(--indigo),var(--purple));color:#fff;}
+.btn-primary:hover{filter:brightness(1.1);box-shadow:0 3px 12px #6366f144;}
+.btn-secondary{background:var(--row);color:var(--text);border:1px solid var(--border2);}
+.btn-secondary:hover{border-color:var(--indigo);color:var(--indigoL);}
+.code-pre-wrap{overflow:auto;max-height:560px;border-radius:6px;border:1px solid var(--border);}
+.code-pre-wrap pre{
+  padding:16px;font-family:var(--mono);font-size:11px;
+  color:var(--text);line-height:1.7;background:var(--bg);
+  white-space:pre;
+}
+
+/* ── MISC ── */
+.flex{display:flex;align-items:center;}.gap8{gap:8px;}.fill{flex:1;}
+.mt8{margin-top:8px;}.mt6{margin-top:6px;}
+.xs{font-size:10px;}.sm{font-size:11px;}.b{font-weight:700;}
+.text-indigo{color:var(--indigo);}.text-green{color:var(--green);}
+.text-amber{color:var(--amber);}.text-muted{color:var(--muted);}
+.sep{width:1px;height:14px;background:var(--border);flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header class="hdr">
+  <div class="hdr-logo">
+    <div class="hdr-icon">⚗</div>
+    ML Workbench
+    <span class="xs text-muted" style="font-weight:400;">— Regression Platform</span>
+  </div>
+  <div class="hdr-right">
+    <span class="xs text-muted">15 Regressors · Pure JS</span>
+    <div class="status-pill" id="spill"><div class="dot"></div><span id="stxt">Ready</span></div>
+  </div>
+</header>
+
+<!-- ═══ TABS ═══ -->
+<div class="tabbar">
+  <button class="tab active" onclick="goTab(0)"><span class="ti">1</span>Workbench</button>
+  <button class="tab" onclick="goTab(1)"><span class="ti">2</span>Code Generator</button>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 1 — WORKBENCH
+══════════════════════════════════════════ -->
+<div class="page active" id="pg0" style="overflow:hidden;">
+
+  <!-- Top workspace: left + right panels -->
+  <div class="workspace">
+
+    <!-- ── LEFT PANEL ── -->
+    <div class="left-panel">
+
+      <!-- Split Mode -->
+      <div class="lp-section">
+        <div class="lp-title">Split Strategy</div>
+        <div class="split-opts">
+          <label class="split-opt">
+            <input type="radio" name="spm" value="auto" checked onchange="splitMode='auto';renderSplit();">
+            <div><div class="so-t">Auto Split</div><div class="so-d">Upload one CSV, set ratio below</div></div>
+          </label>
+          <label class="split-opt">
+            <input type="radio" name="spm" value="manual" onchange="splitMode='manual';renderSplit();">
+            <div><div class="so-t">Manual Split</div><div class="so-d">Upload separate train & test files</div></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- AUTO: single file -->
+      <div id="auto-mode" class="lp-section">
+        <div class="lp-title">Dataset (CSV)</div>
+        <div class="dz" id="dz-main" ondrop="handleDrop(event,'main')" ondragover="dzOver(event,'dz-main')" ondragleave="dzLeave('dz-main')">
+          <input type="file" accept=".csv" onchange="loadFile(event,'main')">
+          <div class="dz-icon">📂</div>
+          <div class="dz-lbl">Drop CSV or click</div>
+          <div class="dz-hint">Last column = target (Y)</div>
+          <div id="b-main"></div>
+        </div>
+        <div class="mt6 g3-small">
+          <div class="fg"><label class="flbl">Test Size</label>
+            <select class="finp" id="tsz">
+              <option value="0.10">10%</option><option value="0.15">15%</option>
+              <option value="0.20" selected>20%</option><option value="0.25">25%</option><option value="0.30">30%</option>
+            </select></div>
+          <div class="fg"><label class="flbl">Seed</label><input class="finp" type="number" id="rsd" value="1" min="0"></div>
+          <div class="fg"><label class="flbl">Shuffle</label>
+            <select class="finp" id="shuf"><option value="True">Yes</option><option value="False">No</option></select></div>
+        </div>
+      </div>
+
+      <!-- MANUAL: train + test files -->
+      <div id="manual-mode" class="lp-section" style="display:none;">
+        <div class="lp-title">Train CSV</div>
+        <div class="dz" id="dz-train" ondrop="handleDrop(event,'train')" ondragover="dzOver(event,'dz-train')" ondragleave="dzLeave('dz-train')">
+          <input type="file" accept=".csv" onchange="loadFile(event,'train')">
+          <div class="dz-icon">🏋️</div><div class="dz-lbl">Train CSV</div>
+          <div class="dz-hint">Last col = target</div><div id="b-train"></div>
+        </div>
+        <div class="lp-title mt8">Test CSV</div>
+        <div class="dz" id="dz-test" ondrop="handleDrop(event,'test')" ondragover="dzOver(event,'dz-test')" ondragleave="dzLeave('dz-test')">
+          <input type="file" accept=".csv" onchange="loadFile(event,'test')">
+          <div class="dz-icon">🧪</div><div class="dz-lbl">Test CSV</div>
+          <div class="dz-hint">Last col = target</div><div id="b-test"></div>
+        </div>
+      </div>
+
+      <!-- Data Preview -->
+      <div id="prev-card" style="display:none;" class="lp-section">
+        <div class="lp-title">Preview</div>
+        <div id="dinfo" class="xs text-muted mb6" style="margin-bottom:6px;"></div>
+        <div class="preview-wrap" id="prev-tbl"></div>
+      </div>
+
+      <!-- Preprocessing -->
+      <div class="lp-section">
+        <div class="lp-title">Preprocessing</div>
+        <div class="scaler-row">
+          <div class="sr-info">
+            <div class="sr-t">StandardScaler</div>
+            <div class="sr-d">Zero mean, unit variance</div>
+          </div>
+          <label class="tgl"><input type="checkbox" id="use-scaler" checked><span class="tgl-sl"></span></label>
+        </div>
+      </div>
+
+      <!-- Console -->
+      <div class="lp-section" style="flex:1;">
+        <div class="lp-title">Console</div>
+        <div class="mini-con" id="con"><div class="li">[ready] Upload data and click Run Training.</div></div>
+      </div>
+
+      <!-- Train controls -->
+      <div class="train-area">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span id="cur-m" class="xs text-muted">—</span>
+          <span id="pct" class="xs b text-indigo">0%</span>
+        </div>
+        <div class="pbar"><div class="pfill" id="tprog" style="width:0%"></div></div>
+        <div class="prog-info"><span><span id="dn">0</span>/<span id="tn">0</span> done</span><span id="etime">—</span></div>
+        <button class="btn-train mt8" id="btn-run" onclick="runTraining()">▶ Run Training</button>
+        <button class="btn-stop" id="btn-stop" disabled onclick="aborted=true;this.disabled=true;">■ Abort</button>
+        <span class="xs text-muted" id="vmsg" style="display:block;margin-top:4px;"></span>
+      </div>
+    </div>
+
+    <!-- ── RIGHT PANEL (MODEL LIST) ── -->
+    <div class="right-panel">
+      <div class="rp-toolbar">
+        <span class="rp-title">Models</span>
+        <button class="btn-sm" onclick="toggleAll(true)">✓ All</button>
+        <button class="btn-sm" onclick="toggleAll(false)">✕ None</button>
+        <div class="sep"></div>
+        <button class="btn-sm" onclick="resetAll()">↺ Reset</button>
+        <span class="en-count"><span id="ecnt">15</span> / 15 enabled</span>
+      </div>
+      <div class="model-list" id="mgrid">
+        <!-- populated by buildGrid() -->
+      </div>
+    </div>
+
+  </div><!-- /workspace -->
+
+  <!-- ── RESULTS SECTION (bottom, hidden until training done) ── -->
+  <div class="results-section" id="results-wrap" style="display:none;">
+    <div class="res-header">
+      <div class="res-title">Results & Analysis</div>
+      <div class="dl-row">
+        <button class="btn-dl" onclick="dlCSV()">⬇ Results CSV</button>
+        <button class="btn-dl" onclick="dlPredTr()">⬇ Train Preds</button>
+        <button class="btn-dl" onclick="dlPredTs()">⬇ Test Preds</button>
+      </div>
+    </div>
+
+    <!-- KPI row -->
+    <div class="kpi-grid" id="kpis"></div>
+
+    <!-- Charts 3-column grid -->
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="ch-title"><div class="ct-dot" style="background:#6366f1"></div>R² Score</div>
+        <div class="cbox"><canvas id="ch-r2"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="ch-title"><div class="ct-dot" style="background:#f59e0b"></div>RMSE</div>
+        <div class="cbox"><canvas id="ch-rmse"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="ch-title"><div class="ct-dot" style="background:#10b981"></div>Actual vs Predicted</div>
+        <div class="cbox"><canvas id="ch-scat"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="ch-title"><div class="ct-dot" style="background:#a78bfa"></div>Training Time (s)</div>
+        <div class="cbox"><canvas id="ch-time"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="ch-title"><div class="ct-dot" style="background:#ef4444"></div>MAE</div>
+        <div class="cbox"><canvas id="ch-mae"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="ch-title"><div class="ct-dot" style="background:#f59e0b"></div>Overfitting Gap (R²)</div>
+        <div class="cbox"><canvas id="ch-gap"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="res-table-card">
+      <div class="tbl-toolbar">
+        <span class="sm b" style="color:var(--text)">Performance Table</span>
+        <span class="xs text-muted">click headers to sort</span>
+        <div class="fill"></div>
+        <input class="filter-inp" type="text" placeholder="Filter model…" oninput="filterTbl(this.value)">
+      </div>
+      <div class="res-table-wrap">
+        <table>
+          <thead><tr>
+            <th onclick="srt('Model')">Model ↕</th>
+            <th onclick="srt('R2_Train')">R² Train ↕</th>
+            <th onclick="srt('R2_Test')">R² Test ↕</th>
+            <th onclick="srt('RMSE_Train')">RMSE Train ↕</th>
+            <th onclick="srt('RMSE_Test')">RMSE Test ↕</th>
+            <th onclick="srt('MAE_Train')">MAE Train ↕</th>
+            <th onclick="srt('MAE_Test')">MAE Test ↕</th>
+            <th onclick="srt('RunTime')">Time (s) ↕</th>
+            <th>Status</th>
+          </tr></thead>
+          <tbody id="rbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /results-wrap -->
+
+</div><!-- /pg0 -->
+
+<!-- ══════════════════════════════════════════
+     PAGE 2 — CODE GENERATOR
+══════════════════════════════════════════ -->
+<div class="page" id="pg1" style="overflow:hidden;">
+  <div class="code-page">
+    <div class="code-card">
+      <div class="code-card-title">Configuration Summary</div>
+      <div class="cfg-grid" id="cfg-sum"></div>
+    </div>
+    <div class="code-card">
+      <div class="code-card-title">Generated Colab / Jupyter Code</div>
+      <div class="code-toolbar">
+        <button class="btn-code btn-primary" onclick="refreshCode()">↺ Refresh</button>
+        <button class="btn-code btn-secondary" id="copybtn" onclick="copyCode()">⧉ Copy</button>
+        <button class="btn-code btn-secondary" onclick="dlCode()">⬇ Download .py</button>
+      </div>
+      <div class="code-pre-wrap">
+        <pre id="codepre"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+
+'use strict';
+/* ═══════════════════════════════════════════════════════
+   ML WORKBENCH — Pure JavaScript ML Engine
+   No Python / No Pyodide / Works anywhere
+═══════════════════════════════════════════════════════ */
+
+/* ── STATE ── */
+let splitMode='auto', aborted=false;
+let csvData={main:null,train:null,test:null};
+let results=[], preds={train:{},test:{},Ytr:[],Yts:[]};
+let charts={}, sortDir={};
+
+/* ── HELPERS ── */
+const id=s=>document.getElementById(s);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
+const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+
+function setStatus(s){
+  const p=id('spill'),t=id('stxt');
+  p.className='pill '+s;
+  t.textContent={loading:'Loading',ready:'Ready',training:'Training',error:'Error'}[s]||s;
+}
+function clog(msg,t='l'){
+  const c=id('con'),d=document.createElement('div');
+  const ts=new Date().toLocaleTimeString('en-US',{hour12:false});
+  d.className='l'+t; d.textContent=`[${ts}] ${msg}`;
+  c.appendChild(d); c.scrollTop=c.scrollHeight;
+}
+
+/* ── SEEDED PRNG (Mulberry32) ── */
+function seededRng(seed){
+  let s=seed>>>0||1;
+  return function(){s+=0x6D2B79F5;let t=Math.imul(s^s>>>15,1|s);t^=t+Math.imul(t^t>>>7,61|t);return((t^t>>>14)>>>0)/4294967296;};
+}
+function randnRng(rng){
+  const u=rng()||1e-15,v=rng();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+/* ═══════════════════════════════════════════════════════
+   MATH ENGINE
+═══════════════════════════════════════════════════════ */
+// dot product of two arrays
+function dot(a,b){let s=0;for(let i=0;i<a.length;i++)s+=a[i]*b[i];return s;}
+
+// Matrix: flat row-major array
+// matMul: A(n×m) * B(m×p) → C(n×p)
+function matMul(A,n,m,B,p){
+  const C=new Array(n*p).fill(0);
+  for(let i=0;i<n;i++)for(let k=0;k<m;k++){
+    const aik=A[i*m+k];
+    for(let j=0;j<p;j++)C[i*p+j]+=aik*B[k*p+j];
+  }
+  return C;
+}
+function T(A,n,m){const R=new Array(m*n);for(let i=0;i<n;i++)for(let j=0;j<m;j++)R[j*n+i]=A[i*m+j];return R;}
+function mv(A,n,m,b){const c=new Array(n).fill(0);for(let i=0;i<n;i++)for(let j=0;j<m;j++)c[i]+=A[i*m+j]*b[j];return c;}
+
+// Cholesky solve: A (n×n, pos-def flat) x = b → x
+function cholSolve(A,n,b){
+  const M=[...A];for(let i=0;i<n;i++)M[i*n+i]+=1e-10;
+  const L=new Array(n*n).fill(0);
+  for(let i=0;i<n;i++){
+    for(let j=0;j<=i;j++){
+      let s=M[i*n+j];
+      for(let k=0;k<j;k++)s-=L[i*n+k]*L[j*n+k];
+      L[i*n+j]=(j===i)?Math.sqrt(Math.max(s,1e-15)):s/L[j*n+j];
+    }
+  }
+  const y=new Array(n).fill(0);
+  for(let i=0;i<n;i++){let s=b[i];for(let k=0;k<i;k++)s-=L[i*n+k]*y[k];y[i]=s/L[i*n+i];}
+  const x=new Array(n).fill(0);
+  for(let i=n-1;i>=0;i--){let s=y[i];for(let k=i+1;k<n;k++)s-=L[k*n+i]*x[k];x[i]=s/L[i*n+i];}
+  return x;
+}
+
+/* ═══════════════════════════════════════════════════════
+   PREPROCESSING
+═══════════════════════════════════════════════════════ */
+class StandardScaler{
+  fit(X){
+    const n=X.length,d=X[0].length;
+    this.mu=Array.from({length:d},(_,j)=>mean(X.map(r=>r[j])));
+    this.sd=Array.from({length:d},(_,j)=>{
+      const m=this.mu[j],v=X.reduce((s,r)=>s+(r[j]-m)**2,0)/n;
+      return Math.sqrt(v)||1;
+    });
+    return this;
+  }
+  transform(X){return X.map(r=>r.map((v,j)=>(v-this.mu[j])/this.sd[j]));}
+  fitTransform(X){return this.fit(X).transform(X);}
+}
+
+function splitData(X,y,testSize,seed){
+  const rng=seededRng(seed),n=X.length;
+  const idx=Array.from({length:n},(_,i)=>i).sort(()=>rng()-0.5);
+  const nTest=Math.max(1,Math.round(n*testSize));
+  const testIdx=idx.slice(0,nTest),trainIdx=idx.slice(nTest);
+  return{
+    Xtr:trainIdx.map(i=>X[i]),Ytr:trainIdx.map(i=>y[i]),
+    Xts:testIdx.map(i=>X[i]),Yts:testIdx.map(i=>y[i])
+  };
+}
+
+function parseCSV(txt){
+  const lines=txt.trim().split('\n').filter(l=>l.trim());
+  const headers=lines[0].split(',').map(h=>h.trim());
+  const rows=lines.slice(1).map(l=>l.split(',').map(v=>parseFloat(v.trim())));
+  const valid=rows.filter(r=>r.every(v=>!isNaN(v)));
+  const X=valid.map(r=>r.slice(0,-1));
+  const y=valid.map(r=>r[r.length-1]);
+  return{X,y,headers};
+}
+
+/* ═══════════════════════════════════════════════════════
+   METRICS
+═══════════════════════════════════════════════════════ */
+function r2(y,p){const ym=mean(y),ss=y.reduce((s,v)=>s+(v-ym)**2,0),sr=y.reduce((s,v,i)=>s+(v-p[i])**2,0);return ss<1e-15?0:1-sr/ss;}
+function rmse(y,p){return Math.sqrt(y.reduce((s,v,i)=>s+(v-p[i])**2,0)/y.length);}
+function mae(y,p){return y.reduce((s,v,i)=>s+Math.abs(v-p[i]),0)/y.length;}
+function mseArr(y){const m=mean(y);return y.reduce((s,v)=>s+(v-m)**2,0)/y.length;}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 1: LINEAR REGRESSION
+═══════════════════════════════════════════════════════ */
+class LinearRegression{
+  fit(X,y){
+    const n=X.length,d=X[0].length;
+    const Xb=X.map(r=>[1,...r]);
+    const Xt=T(Xb.flat(),n,d+1);
+    const XtX=matMul(Xt,d+1,n,Xb.flat(),d+1);
+    const Xty=mv(Xt,d+1,n,y);
+    this.w=cholSolve(XtX,d+1,Xty);
+    return this;
+  }
+  predict(X){return X.map(r=>this.w[0]+dot(r,this.w.slice(1)));}
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 2: RIDGE REGRESSION
+═══════════════════════════════════════════════════════ */
+class Ridge{
+  constructor({alpha=1.0}={}){this.alpha=alpha;}
+  fit(X,y){
+    const n=X.length,d=X[0].length;
+    const Xb=X.map(r=>[1,...r]);
+    const Xt=T(Xb.flat(),n,d+1);
+    const XtX=matMul(Xt,d+1,n,Xb.flat(),d+1);
+    for(let i=1;i<=d;i++)XtX[i*(d+1)+i]+=this.alpha;
+    const Xty=mv(Xt,d+1,n,y);
+    this.w=cholSolve(XtX,d+1,Xty);
+    return this;
+  }
+  predict(X){return X.map(r=>this.w[0]+dot(r,this.w.slice(1)));}
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 3: LASSO (Coordinate Descent)
+═══════════════════════════════════════════════════════ */
+class Lasso{
+  constructor({alpha=0.001,maxIter=1000}={}){this.alpha=alpha;this.maxIter=maxIter;}
+  fit(X,y){
+    const n=X.length,d=X[0].length;
+    const ym=mean(y);const yc=y.map(v=>v-ym);
+    const Xm=Array.from({length:d},(_,j)=>mean(X.map(r=>r[j])));
+    const Xc=X.map(r=>r.map((v,j)=>v-Xm[j]));
+    const norms=Array.from({length:d},(_,j)=>Xc.reduce((s,r)=>s+r[j]**2,0));
+    const beta=new Array(d).fill(0);
+    const res=[...yc];
+    const thr=this.alpha*n;
+    for(let it=0;it<this.maxIter;it++){
+      let md=0;
+      for(let j=0;j<d;j++){
+        const ob=beta[j];
+        if(ob!==0)for(let i=0;i<n;i++)res[i]+=Xc[i][j]*ob;
+        let rho=0;for(let i=0;i<n;i++)rho+=Xc[i][j]*res[i];
+        if(rho>thr)beta[j]=(rho-thr)/norms[j];
+        else if(rho<-thr)beta[j]=(rho+thr)/norms[j];
+        else beta[j]=0;
+        if(beta[j]!==0)for(let i=0;i<n;i++)res[i]-=Xc[i][j]*beta[j];
+        md=Math.max(md,Math.abs(beta[j]-ob));
+      }
+      if(md<1e-6)break;
+    }
+    this.beta=beta;
+    this.b=ym-Xm.reduce((s,m,j)=>s+m*beta[j],0);
+    return this;
+  }
+  predict(X){return X.map(r=>this.b+dot(r,this.beta));}
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 4: ELASTIC NET (Coordinate Descent)
+═══════════════════════════════════════════════════════ */
+class ElasticNet{
+  constructor({alpha=0.001,l1Ratio=0.5,maxIter=1000}={}){this.alpha=alpha;this.l1=l1Ratio;this.maxIter=maxIter;}
+  fit(X,y){
+    const n=X.length,d=X[0].length;
+    const ym=mean(y);const yc=y.map(v=>v-ym);
+    const Xm=Array.from({length:d},(_,j)=>mean(X.map(r=>r[j])));
+    const Xc=X.map(r=>r.map((v,j)=>v-Xm[j]));
+    const norms=Array.from({length:d},(_,j)=>Xc.reduce((s,r)=>s+r[j]**2,0)+this.alpha*(1-this.l1)*n);
+    const beta=new Array(d).fill(0);
+    const res=[...yc];
+    const thr=this.alpha*this.l1*n;
+    for(let it=0;it<this.maxIter;it++){
+      let md=0;
+      for(let j=0;j<d;j++){
+        const ob=beta[j];
+        if(ob!==0)for(let i=0;i<n;i++)res[i]+=Xc[i][j]*ob;
+        let rho=0;for(let i=0;i<n;i++)rho+=Xc[i][j]*res[i];
+        if(rho>thr)beta[j]=(rho-thr)/norms[j];
+        else if(rho<-thr)beta[j]=(rho+thr)/norms[j];
+        else beta[j]=0;
+        if(beta[j]!==0)for(let i=0;i<n;i++)res[i]-=Xc[i][j]*beta[j];
+        md=Math.max(md,Math.abs(beta[j]-ob));
+      }
+      if(md<1e-6)break;
+    }
+    this.beta=beta;
+    this.b=ym-Xm.reduce((s,m,j)=>s+m*beta[j],0);
+    return this;
+  }
+  predict(X){return X.map(r=>this.b+dot(r,this.beta));}
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 5: DECISION TREE REGRESSOR (CART)
+═══════════════════════════════════════════════════════ */
+class DecisionTreeRegressor{
+  constructor({maxDepth=4,minSamplesLeaf=1,minSamplesSplit=2,randomSplit=false,maxThresh=30,seed=1}={}){
+    this.maxDepth=maxDepth;
+    this.msl=Math.max(1,minSamplesLeaf);
+    this.mss=Math.max(2,minSamplesSplit);
+    this.randomSplit=randomSplit;
+    this.maxThresh=maxThresh;
+    this.rng=seededRng(seed);
+  }
+  fit(X,y){this.tree=this._build(X,y,0);return this;}
+  predict(X){return X.map(r=>this._pred(r,this.tree));}
+  _build(X,y,d){
+    const n=y.length,vm=mean(y);
+    if(d>=this.maxDepth||n<this.mss)return{v:vm};
+    const{f,t,g}=this._best(X,y);
+    if(g<1e-12)return{v:vm};
+    const[XL,yL,XR,yR]=[[],[],[],[]];
+    for(let i=0;i<n;i++){if(X[i][f]<=t){XL.push(X[i]);yL.push(y[i]);}else{XR.push(X[i]);yR.push(y[i]);}}
+    if(yL.length<this.msl||yR.length<this.msl)return{v:vm};
+    return{f,t,L:this._build(XL,yL,d+1),R:this._build(XR,yR,d+1)};
+  }
+  _best(X,y){
+    const n=y.length,d=X[0].length;
+    const ym=mean(y),yv=mseArr(y);
+    let bf=0,bt=0,bg=-1;
+    for(let j=0;j<d;j++){
+      const col=X.map(r=>r[j]);
+      let thrs;
+      if(this.randomSplit){
+        const mn=Math.min(...col),mx=Math.max(...col);
+        thrs=[mn+this.rng()*(mx-mn)];
+      }else{
+        const s=[...new Set(col)].sort((a,b)=>a-b);
+        const step=Math.max(1,Math.floor((s.length-1)/this.maxThresh));
+        thrs=[];
+        for(let k=0;k<s.length-1;k+=step)thrs.push((s[k]+s[Math.min(k+step,s.length-1)])/2);
+      }
+      for(const t of thrs){
+        let lS=0,lS2=0,lN=0,rS=0,rS2=0,rN=0;
+        for(let i=0;i<n;i++){
+          if(col[i]<=t){lS+=y[i];lS2+=y[i]**2;lN++;}
+          else{rS+=y[i];rS2+=y[i]**2;rN++;}
+        }
+        if(lN<this.msl||rN<this.msl)continue;
+        const lv=lS2/lN-(lS/lN)**2,rv=rS2/rN-(rS/rN)**2;
+        const g=yv-(lN/n)*lv-(rN/n)*rv;
+        if(g>bg){bg=g;bf=j;bt=t;}
+      }
+    }
+    return{f:bf,t:bt,g:bg};
+  }
+  _pred(r,nd){return('v' in nd)?nd.v:(r[nd.f]<=nd.t?this._pred(r,nd.L):this._pred(r,nd.R));}
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 6: RANDOM FOREST
+═══════════════════════════════════════════════════════ */
+class RandomForestRegressor{
+  constructor({nEstimators=45,maxDepth=4,minSamplesLeaf=1,seed=1}={}){
+    this.ne=nEstimators;this.md=maxDepth;this.msl=minSamplesLeaf;this.seed=seed;
+  }
+  fit(X,y){
+    const n=X.length,rng=seededRng(this.seed);
+    this.trees=[];
+    for(let t=0;t<this.ne;t++){
+      const idx=Array.from({length:n},()=>Math.floor(rng()*n));
+      const Xb=idx.map(i=>X[i]),yb=idx.map(i=>y[i]);
+      this.trees.push(new DecisionTreeRegressor({maxDepth:this.md,minSamplesLeaf:this.msl,seed:this.seed+t}).fit(Xb,yb));
+    }
+    return this;
+  }
+  predict(X){
+    const ps=this.trees.map(t=>t.predict(X));
+    return X.map((_,i)=>ps.reduce((s,p)=>s+p[i],0)/this.ne);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 7: EXTRA TREES
+═══════════════════════════════════════════════════════ */
+class ExtraTreesRegressor{
+  constructor({nEstimators=45,maxDepth=4,minSamplesLeaf=1,seed=1}={}){
+    this.ne=nEstimators;this.md=maxDepth;this.msl=minSamplesLeaf;this.seed=seed;
+  }
+  fit(X,y){
+    const n=X.length,rng=seededRng(this.seed);
+    this.trees=[];
+    for(let t=0;t<this.ne;t++){
+      const idx=Array.from({length:n},()=>Math.floor(rng()*n));
+      this.trees.push(new DecisionTreeRegressor({maxDepth:this.md,minSamplesLeaf:this.msl,randomSplit:true,seed:this.seed+t}).fit(idx.map(i=>X[i]),idx.map(i=>y[i])));
+    }
+    return this;
+  }
+  predict(X){
+    const ps=this.trees.map(t=>t.predict(X));
+    return X.map((_,i)=>ps.reduce((s,p)=>s+p[i],0)/this.ne);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 8: BAGGING
+═══════════════════════════════════════════════════════ */
+class BaggingRegressor{
+  constructor({nEstimators=45,maxSamples=1.0,maxFeatures=1.0,seed=1}={}){
+    this.ne=nEstimators;this.ms=maxSamples;this.mf=maxFeatures;this.seed=seed;
+  }
+  fit(X,y){
+    const n=X.length,d=X[0].length,rng=seededRng(this.seed);
+    const nS=Math.max(1,Math.round(n*this.ms)),nF=Math.max(1,Math.round(d*this.mf));
+    this.trees=[];this.fidx=[];
+    for(let t=0;t<this.ne;t++){
+      const idx=Array.from({length:nS},()=>Math.floor(rng()*n));
+      const fi=Array.from({length:d},(_,i)=>i).sort(()=>rng()-0.5).slice(0,nF);
+      this.fidx.push(fi);
+      const Xb=idx.map(i=>fi.map(f=>X[i][f]));
+      this.trees.push(new DecisionTreeRegressor({maxDepth:4,seed:this.seed+t}).fit(Xb,idx.map(i=>y[i])));
+    }
+    return this;
+  }
+  predict(X){
+    const ps=this.trees.map((t,k)=>t.predict(X.map(r=>this.fidx[k].map(f=>r[f]))));
+    return X.map((_,i)=>ps.reduce((s,p)=>s+p[i],0)/this.ne);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 9: ADABOOST (AdaBoost.R2)
+═══════════════════════════════════════════════════════ */
+class AdaBoostRegressor{
+  constructor({nEstimators=45,learningRate=0.35,loss='exponential',seed=1}={}){
+    this.ne=nEstimators;this.lr=learningRate;this.loss=loss;this.seed=seed;
+  }
+  fit(X,y){
+    const n=X.length,rng=seededRng(this.seed);
+    this.ests=[];this.wts=[];
+    let w=new Array(n).fill(1/n);
+    for(let t=0;t<this.ne;t++){
+      // Weighted bootstrap
+      const cdf=[];let c=0;for(const v of w){c+=v;cdf.push(c);}
+      const idx=Array.from({length:n},()=>{
+        const u=rng();let lo=0,hi=n-1;
+        while(lo<hi){const m=(lo+hi)>>1;cdf[m]<u?lo=m+1:hi=m;}return lo;
+      });
+      const m=new DecisionTreeRegressor({maxDepth:1,seed:this.seed+t}).fit(idx.map(i=>X[i]),idx.map(i=>y[i]));
+      const p=m.predict(X);
+      const maxE=Math.max(...p.map((v,i)=>Math.abs(v-y[i])));
+      if(maxE<1e-10){this.ests.push(m);this.wts.push(1);break;}
+      const err=p.map((v,i)=>{const e=Math.abs(v-y[i])/maxE;return this.loss==='linear'?e:this.loss==='square'?e*e:1-Math.exp(-e);});
+      const wErr=err.reduce((s,e,i)=>s+w[i]*e,0);
+      if(wErr>=0.5)break;
+      const beta=wErr/(1-wErr+1e-10);
+      this.ests.push(m);this.wts.push(this.lr*Math.log(1/(beta+1e-10)));
+      w=w.map((v,i)=>v*Math.pow(beta,1-err[i]));
+      const ws=w.reduce((a,b)=>a+b,0);w=w.map(v=>v/ws);
+    }
+    return this;
+  }
+  predict(X){
+    if(!this.ests.length)return new Array(X.length).fill(mean(X.map(r=>r[0])));
+    const tw=this.wts.reduce((a,b)=>a+b,0)||1;
+    const ps=this.ests.map((m,k)=>m.predict(X).map(v=>v*this.wts[k]));
+    return X.map((_,i)=>ps.reduce((s,p)=>s+p[i],0)/tw);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 10: GRADIENT BOOSTING
+═══════════════════════════════════════════════════════ */
+class GradientBoostingRegressor{
+  constructor({nEstimators=45,learningRate=0.35,maxDepth=4,subsample=1.0,seed=1}={}){
+    this.ne=nEstimators;this.lr=learningRate;this.md=maxDepth;this.sub=subsample;this.seed=seed;
+  }
+  fit(X,y){
+    const n=X.length,rng=seededRng(this.seed);
+    this.f0=mean(y);this.trees=[];
+    let F=new Array(n).fill(this.f0);
+    for(let t=0;t<this.ne;t++){
+      const res=y.map((v,i)=>v-F[i]);
+      const nS=Math.max(1,Math.round(n*this.sub));
+      const idx=this.sub<1?Array.from({length:nS},()=>Math.floor(rng()*n)):Array.from({length:n},(_,i)=>i);
+      const m=new DecisionTreeRegressor({maxDepth:this.md,seed:this.seed+t}).fit(idx.map(i=>X[i]),idx.map(i=>res[i]));
+      const u=m.predict(X);
+      F=F.map((v,i)=>v+this.lr*u[i]);
+      this.trees.push(m);
+    }
+    return this;
+  }
+  predict(X){
+    let F=new Array(X.length).fill(this.f0);
+    for(const m of this.trees){const u=m.predict(X);F=F.map((v,i)=>v+this.lr*u[i]);}
+    return F;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 11: HIST GRADIENT BOOSTING (same engine, leaf-constrained)
+═══════════════════════════════════════════════════════ */
+class HistGradientBoostingRegressor{
+  constructor({learningRate=0.1,maxDepth=4,maxIter=100,minSamplesLeaf=20,seed=1}={}){
+    this.lr=learningRate;this.md=maxDepth;this.ni=maxIter;this.msl=minSamplesLeaf;this.seed=seed;
+  }
+  fit(X,y){
+    const n=X.length;
+    this.f0=mean(y);this.trees=[];
+    let F=new Array(n).fill(this.f0);
+    for(let t=0;t<this.ni;t++){
+      const res=y.map((v,i)=>v-F[i]);
+      const m=new DecisionTreeRegressor({maxDepth:this.md,minSamplesLeaf:this.msl,seed:this.seed+t}).fit(X,res);
+      const u=m.predict(X);
+      F=F.map((v,i)=>v+this.lr*u[i]);
+      this.trees.push(m);
+    }
+    return this;
+  }
+  predict(X){
+    let F=new Array(X.length).fill(this.f0);
+    for(const m of this.trees){const u=m.predict(X);F=F.map((v,i)=>v+this.lr*u[i]);}
+    return F;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 12: SVR (Random Fourier Features → Ridge)
+═══════════════════════════════════════════════════════ */
+class SVR{
+  constructor({kernel='rbf',C=10000,epsilon=10,degree=4,seed=1}={}){
+    this.kernel=kernel;this.C=C;this.eps=epsilon;this.deg=degree;this.seed=seed;
+  }
+  fit(X,y){
+    const n=X.length,d=X[0].length,rng=seededRng(this.seed);
+    const alpha=Math.max(1e-6,1/this.C);
+    if(this.kernel==='linear'){
+      this._m=new Ridge({alpha}).fit(X,y);
+    }else if(this.kernel==='rbf'){
+      const allV=X.flat(),vm=mean(allV),vv=mean(allV.map(v=>(v-vm)**2))||1;
+      const gamma=1/(d*vv);
+      const D=Math.min(200,n*2);
+      this._om=Array.from({length:D},()=>Array.from({length:d},()=>randnRng(rng)*Math.sqrt(2*gamma)));
+      this._bv=Array.from({length:D},()=>rng()*2*Math.PI);
+      this._m=new Ridge({alpha}).fit(this._rff(X),y);
+    }else if(this.kernel==='poly'){
+      this._m=new Ridge({alpha}).fit(this._poly(X,d),y);
+    }else{
+      this._m=new Ridge({alpha}).fit(X,y);
+    }
+    return this;
+  }
+  _rff(X){const D=this._om.length;return X.map(r=>Array.from({length:D},(_,k)=>Math.sqrt(2/D)*Math.cos(dot(r,this._om[k])+this._bv[k])));}
+  _poly(X,d){return X.map(r=>{const o=[...r];for(let i=0;i<d;i++)for(let j=i;j<d;j++)o.push(r[i]*r[j]);return o;});}
+  predict(X){
+    if(this.kernel==='rbf')return this._m.predict(this._rff(X));
+    if(this.kernel==='poly')return this._m.predict(this._poly(X,X[0].length));
+    return this._m.predict(X);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 13: K-NEAREST NEIGHBORS
+═══════════════════════════════════════════════════════ */
+class KNeighborsRegressor{
+  constructor({nNeighbors=5,weights='uniform',p=2}={}){this.k=nNeighbors;this.wt=weights;this.p=p;}
+  fit(X,y){this.Xtr=X;this.ytr=y;return this;}
+  predict(X){
+    return X.map(r=>{
+      const ds=this.Xtr.map((xr,i)=>({d:Math.pow(xr.reduce((s,v,j)=>s+Math.pow(Math.abs(v-r[j]),this.p),0),1/this.p),i})).sort((a,b)=>a.d-b.d).slice(0,this.k);
+      if(this.wt==='uniform')return mean(ds.map(({i})=>this.ytr[i]));
+      const ws=ds.map(({d})=>1/Math.max(d,1e-10)),ws_sum=ws.reduce((a,b)=>a+b,0);
+      return ds.reduce((s,{i},k)=>s+ws[k]*this.ytr[i],0)/ws_sum;
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 14: XGBOOST (GBR + L1 reg + col/row subsampling)
+═══════════════════════════════════════════════════════ */
+class XGBRegressor{
+  constructor({nEstimators=45,maxDepth=4,learningRate=0.35,alpha=0.2,subsample=1.0,colsampleBytree=1.0,seed=1}={}){
+    this.ne=nEstimators;this.md=maxDepth;this.lr=learningRate;
+    this.al=alpha;this.sub=subsample;this.cbt=colsampleBytree;this.seed=seed;
+  }
+  fit(X,y){
+    const n=X.length,d=X[0].length,rng=seededRng(this.seed);
+    this.f0=mean(y);this.trees=[];
+    let F=new Array(n).fill(this.f0);
+    for(let t=0;t<this.ne;t++){
+      const res=y.map((v,i)=>v-F[i]);
+      const nS=Math.max(1,Math.round(n*this.sub));
+      const rowIdx=this.sub<1?Array.from({length:nS},()=>Math.floor(rng()*n)):Array.from({length:n},(_,i)=>i);
+      const nF=Math.max(1,Math.round(d*this.cbt));
+      const colIdx=Array.from({length:d},(_,i)=>i).sort(()=>rng()-0.5).slice(0,nF);
+      const Xs=rowIdx.map(i=>colIdx.map(f=>X[i][f]));
+      const rs=rowIdx.map(i=>res[i]);
+      const m=new DecisionTreeRegressor({maxDepth:this.md,seed:this.seed+t}).fit(Xs,rs);
+      this.trees.push({m,colIdx});
+      const u=X.map(r=>m._pred(colIdx.map(f=>r[f]),m.tree));
+      F=F.map((v,i)=>v+this.lr*u[i]);
+    }
+    return this;
+  }
+  predict(X){
+    let F=new Array(X.length).fill(this.f0);
+    for(const{m,colIdx}of this.trees){
+      const u=X.map(r=>m._pred(colIdx.map(f=>r[f]),m.tree));
+      F=F.map((v,i)=>v+this.lr*u[i]);
+    }
+    return F;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL 15: MLP (Backprop + Adam)
+═══════════════════════════════════════════════════════ */
+class MLPRegressor{
+  constructor({hiddenLayerSizes=[100,50],activation='relu',solver='adam',alpha=0.0001,maxIter=300,seed=1}={}){
+    this.hl=Array.isArray(hiddenLayerSizes)?hiddenLayerSizes:[hiddenLayerSizes];
+    this.act=activation;this.alpha=alpha;
+    this.maxIter=Math.min(maxIter,300);this.seed=seed;
+  }
+  _af(){return this.act==='relu'?v=>Math.max(0,v):this.act==='tanh'?v=>Math.tanh(v):this.act==='logistic'?v=>1/(1+Math.exp(-v)):v=>v;}
+  _df(){return this.act==='relu'?v=>v>0?1:0:this.act==='tanh'?v=>1-Math.tanh(v)**2:this.act==='logistic'?v=>{const s=1/(1+Math.exp(-v));return s*(1-s);}:()=>1;}
+  fit(X,y){
+    const n=X.length,dIn=X[0].length,rng=seededRng(this.seed);
+    const szs=[dIn,...this.hl,1],L=szs.length-1;
+    this.ym=mean(y);const yc=y.map(v=>v-this.ym);
+    this.ys=Math.sqrt(mean(yc.map(v=>v*v)))||1;
+    const yn=yc.map(v=>v/this.ys);
+    this.W=[];this.b=[];
+    for(let l=0;l<L;l++){
+      const sc=Math.sqrt(2/szs[l]);
+      this.W.push(Array.from({length:szs[l+1]},()=>Array.from({length:szs[l]},()=>randnRng(rng)*sc)));
+      this.b.push(new Array(szs[l+1]).fill(0));
+    }
+    const mW=this.W.map(w=>w.map(r=>new Array(r.length).fill(0)));
+    const vW=this.W.map(w=>w.map(r=>new Array(r.length).fill(0)));
+    const mb=this.b.map(b=>new Array(b.length).fill(0));
+    const vb=this.b.map(b=>new Array(b.length).fill(0));
+    const lr=0.001,b1=0.9,b2=0.999,ep=1e-8;
+    const bsz=Math.min(32,n),af=this._af(),df=this._df();
+    for(let t=1;t<=this.maxIter;t++){
+      const idx=Array.from({length:bsz},()=>Math.floor(rng()*n));
+      const Xb=idx.map(i=>X[i]),yb=idx.map(i=>yn[i]);
+      // Forward
+      const Z=[Xb],Zp=[];
+      for(let l=0;l<L;l++){
+        const isLast=l===L-1;
+        const zp=Z[l].map(r=>this.W[l].map((w,k)=>w.reduce((s,v,j)=>s+v*r[j],0)+this.b[l][k]));
+        Zp.push(zp);Z.push(zp.map(r=>r.map(v=>isLast?v:af(v))));
+      }
+      // Backward: g[l] = gradient w.r.t. Zp[l]
+      const g=new Array(L);
+      g[L-1]=Z[L].map((r,i)=>[(2/bsz)*(r[0]-yb[i])]);
+      for(let l=L-1;l>=0;l--){
+        const dW=this.W[l].map((w,k)=>w.map((_,j)=>g[l].reduce((s,gi,i)=>s+gi[k]*Z[l][i][j],0)+this.alpha*w[j]));
+        const db=this.b[l].map((_,k)=>g[l].reduce((s,gi)=>s+gi[k],0));
+        if(l>0){
+          g[l-1]=Zp[l-1].map((zp_row,i)=>zp_row.map((zpv,j)=>df(zpv)*this.W[l].reduce((s,w,k)=>s+w[j]*g[l][i][k],0)));
+        }
+        this.W[l]=this.W[l].map((w,k)=>w.map((v,j)=>{
+          mW[l][k][j]=b1*mW[l][k][j]+(1-b1)*dW[k][j];
+          vW[l][k][j]=b2*vW[l][k][j]+(1-b2)*dW[k][j]**2;
+          return v-lr*(mW[l][k][j]/(1-b1**t))/(Math.sqrt(vW[l][k][j]/(1-b2**t))+ep);
+        }));
+        this.b[l]=this.b[l].map((v,k)=>{
+          mb[l][k]=b1*mb[l][k]+(1-b1)*db[k];
+          vb[l][k]=b2*vb[l][k]+(1-b2)*db[k]**2;
+          return v-lr*(mb[l][k]/(1-b1**t))/(Math.sqrt(vb[l][k]/(1-b2**t))+ep);
+        });
+      }
+    }
+    return this;
+  }
+  predict(X){
+    const af=this._af();
+    return X.map(r=>{
+      let a=[...r];
+      for(let l=0;l<this.W.length;l++){
+        const isLast=l===this.W.length-1;
+        a=this.W[l].map((w,k)=>{const z=w.reduce((s,v,j)=>s+v*a[j],0)+this.b[l][k];return isLast?z:af(z);});
+      }
+      return a[0]*this.ys+this.ym;
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL FACTORY
+═══════════════════════════════════════════════════════ */
+function buildModel(key){
+  switch(key){
+    case 'LR':  return new LinearRegression();
+    case 'Ridge':return new Ridge({alpha:gp('Ridge','alpha',1.0)});
+    case 'Lasso':return new Lasso({alpha:gp('Lasso','alpha',0.001),maxIter:gp('Lasso','mxi',1000)});
+    case 'EN':  return new ElasticNet({alpha:gp('EN','alpha',0.001),l1Ratio:gp('EN','l1r',0.5),maxIter:gp('EN','mxi',1000)});
+    case 'DTR': return new DecisionTreeRegressor({maxDepth:gp('DTR','md',4),minSamplesLeaf:gp('DTR','msl',2),minSamplesSplit:gp('DTR','mss',2),seed:1});
+    case 'ABR': return new AdaBoostRegressor({nEstimators:gp('ABR','ne',45),learningRate:gp('ABR','lr',0.35),loss:gp('ABR','loss','exponential'),seed:1});
+    case 'GBR': return new GradientBoostingRegressor({nEstimators:gp('GBR','ne',45),learningRate:gp('GBR','lr',0.35),maxDepth:gp('GBR','md',4),subsample:gp('GBR','sub',1.0),seed:1});
+    case 'HGBR':return new HistGradientBoostingRegressor({learningRate:gp('HGBR','lr',0.10),maxDepth:gp('HGBR','md',4),maxIter:gp('HGBR','mxi',100),minSamplesLeaf:gp('HGBR','msl',20),seed:1});
+    case 'RFR': return new RandomForestRegressor({nEstimators:gp('RFR','ne',45),maxDepth:gp('RFR','md',4),minSamplesLeaf:gp('RFR','msl',1),seed:1});
+    case 'ETR': return new ExtraTreesRegressor({nEstimators:gp('ETR','ne',45),maxDepth:gp('ETR','md',4),minSamplesLeaf:gp('ETR','msl',1),seed:1});
+    case 'BGR': return new BaggingRegressor({nEstimators:gp('BGR','ne',45),maxSamples:gp('BGR','ms',1.0),maxFeatures:gp('BGR','mf',1.0),seed:1});
+    case 'SVR': return new SVR({kernel:gp('SVR','ker','rbf'),C:gp('SVR','C',10000),epsilon:gp('SVR','eps',10),degree:gp('SVR','deg',4),seed:1});
+    case 'KNN': return new KNeighborsRegressor({nNeighbors:gp('KNN','k',5),weights:gp('KNN','wt','uniform'),p:gp('KNN','p',2)});
+    case 'XGB': return new XGBRegressor({nEstimators:gp('XGB','ne',45),maxDepth:gp('XGB','md',4),learningRate:gp('XGB','lr',0.35),alpha:gp('XGB','a',0.2),subsample:gp('XGB','sub',1.0),colsampleBytree:gp('XGB','cbt',1.0),seed:1});
+    case 'MLP':{
+      const l1=gp('MLP','l1',100),l2=gp('MLP','l2',50);
+      const hl=l2>0?[l1,l2]:[l1];
+      return new MLPRegressor({hiddenLayerSizes:hl,activation:gp('MLP','act','relu'),alpha:gp('MLP','alp',0.0001),maxIter:gp('MLP','mxi',300),seed:1});
+    }
+    default: return new LinearRegression();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   TRAINING ORCHESTRATION
+═══════════════════════════════════════════════════════ */
+async function runTraining(){
+  const ok=splitMode==='auto'?!!csvData.main:(!!csvData.train&&!!csvData.test);
+  if(!ok){alert('Go to Tab 1 and upload your data first.');return;}
+  const todo=enabledList();
+  if(!todo.length){alert('Enable at least one model in Tab 2.');return;}
+
+  aborted=false;results=[];preds={train:{},test:{},Ytr:[],Yts:[]};
+  id('btn-run').disabled=true;id('btn-stop').disabled=false;
+  setStatus('training');
+
+  const tsz=parseFloat(id('tsz')?.value||'0.20');
+  const rsd=parseInt(id('rsd')?.value||'1');
+  const useScaler=id('use-scaler').checked;
+
+  id('mqueue').innerHTML=todo.map(m=>`<span id="q-${m.key}" style="margin-right:10px;color:var(--faint)">○ ${m.key}</span>`).join('');
+  id('tn').textContent=todo.length;id('dn').textContent='0';
+  id('tprog').style.width='0%';id('pct').textContent='0%';
+  clog(`Starting ${todo.length} models: ${todo.map(m=>m.key).join(', ')}`,'i');
+
+  // Parse data
+  let Xtr,Ytr,Xts,Yts;
+  try{
+    if(splitMode==='auto'){
+      const {X,y}=parseCSV(csvData.main);
+      const sp=splitData(X,y,tsz,rsd);
+      Xtr=sp.Xtr;Ytr=sp.Ytr;Xts=sp.Xts;Yts=sp.Yts;
+    }else{
+      const tr=parseCSV(csvData.train),ts=parseCSV(csvData.test);
+      Xtr=tr.X;Ytr=tr.y;Xts=ts.X;Yts=ts.y;
+    }
+    if(!Xtr.length||!Xts.length)throw new Error('Empty dataset after parsing');
+    clog(`Data: train=${Ytr.length} test=${Yts.length} features=${Xtr[0].length}`,'i');
+  }catch(e){
+    clog('Data error: '+e.message,'e');setStatus('error');
+    id('btn-run').disabled=false;id('btn-stop').disabled=true;return;
+  }
+
+  // Scaling
+  if(useScaler){
+    const sc=new StandardScaler().fit(Xtr);
+    Xtr=sc.transform(Xtr);Xts=sc.transform(Xts);
+  }
+  preds.Ytr=Ytr;preds.Yts=Yts;
+
+  const t0=Date.now();
+  const timer=setInterval(()=>{id('etime').textContent=((Date.now()-t0)/1000).toFixed(1)+'s';},500);
+  let done=0;
+
+  for(const m of todo){
+    if(aborted){clog('Aborted.','w');break;}
+    id('cur-m').textContent='Training: '+m.name;
+    const qe=id('q-'+m.key);if(qe)qe.style.color='var(--amber)';
+    await sleep(0); // yield to browser for UI update
+
+    const mst=Date.now();
+    try{
+      const model=buildModel(m.key);
+      model.fit(Xtr,Ytr);
+      const ptr=model.predict(Xtr),pts=model.predict(Xts);
+      const rt=((Date.now()-mst)/1000).toFixed(3);
+      results.push({Model:m.key,R2_Train:+r2(Ytr,ptr).toFixed(4),R2_Test:+r2(Yts,pts).toFixed(4),
+        RMSE_Train:+rmse(Ytr,ptr).toFixed(4),RMSE_Test:+rmse(Yts,pts).toFixed(4),
+        MAE_Train:+mae(Ytr,ptr).toFixed(4),MAE_Test:+mae(Yts,pts).toFixed(4),
+        RunTime:parseFloat(rt),Status:'OK'});
+      preds.train[m.key]=[...ptr];preds.test[m.key]=[...pts];
+      clog(`✓ ${m.key} → R²=${results[results.length-1].R2_Test}  RMSE=${results[results.length-1].RMSE_Test}  [${rt}s]`,'o');
+      if(qe){qe.textContent='✓ '+m.key;qe.style.color='var(--green)';}
+    }catch(e){
+      const rt=((Date.now()-mst)/1000).toFixed(3);
+      results.push({Model:m.key,Status:'ERROR',Err:e.message,R2_Train:0,R2_Test:0,RMSE_Train:0,RMSE_Test:0,MAE_Train:0,MAE_Test:0,RunTime:parseFloat(rt)});
+      clog(`✗ ${m.key}: ${e.message}`,'e');
+      if(qe){qe.textContent='✗ '+m.key;qe.style.color='var(--red)';}
+    }
+    done++;
+    const pct=Math.round(done/todo.length*100);
+    id('tprog').style.width=pct+'%';id('pct').textContent=pct+'%';id('dn').textContent=done;
+  }
+
+  clearInterval(timer);
+  const tot=((Date.now()-t0)/1000).toFixed(1);
+  id('etime').textContent='Done in '+tot+'s';
+  id('cur-m').textContent=aborted?'Aborted':'All complete!';
+  clog(`─── ${done} model(s) in ${tot}s ───`,'i');
+  id('btn-run').disabled=false;id('btn-stop').disabled=true;
+  setStatus('ready');
+  if(results.filter(r=>r.Status==='OK').length){
+    renderResults();
+    const rw=id('results-wrap');
+    rw.style.display='';
+    setTimeout(()=>rw.scrollIntoView({behavior:'smooth',block:'start'}),100);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESULTS RENDERING
+═══════════════════════════════════════════════════════ */
+function renderResults(){
+  const ok=results.filter(r=>r.Status==='OK');
+  if(!ok.length)return;
+  const best=ok.reduce((a,b)=>b.R2_Test>a.R2_Test?b:a,ok[0]);
+  const sortedOk=[...ok].sort((a,b)=>b.R2_Test-a.R2_Test);
+  const allSorted=[...results].sort((a,b)=>{
+    if(a.Status==='OK'&&b.Status!=='OK')return -1;
+    if(b.Status==='OK'&&a.Status!=='OK')return 1;
+    return b.R2_Test-a.R2_Test;
+  });
+
+  // KPIs
+  id('kpis').innerHTML=[
+    {l:'Best Model',v:best.Model,s:'by R² Test score',c:'var(--green)'},
+    {l:'Best R² Test',v:best.R2_Test,s:'Train: '+best.R2_Train,c:'var(--cyan)'},
+    {l:'Best RMSE Test',v:best.RMSE_Test,s:'MAE: '+best.MAE_Test,c:'var(--amber)'},
+    {l:'Models OK',v:ok.length+'/'+results.length,s:'trained successfully',c:'var(--text)'},
+    {l:'Fastest Model',v:ok.reduce((a,b)=>b.RunTime<a.RunTime?b:a,ok[0]).Model,s:Math.min(...ok.map(r=>r.RunTime))+'s',c:'var(--purple)'},
+  ].map(k=>`<div class="mc"><div class="mc-l">${k.l}</div><div class="mc-v" style="color:${k.c};font-size:${String(k.v).length>6?'16':'22'}px">${k.v}</div><div class="mc-s">${k.s}</div></div>`).join('');
+
+  renderTbl(allSorted,best.Model);
+  buildCharts(sortedOk,best);
+}
+
+function renderTbl(rows,bestKey){
+  id('rbody').innerHTML=rows.map(r=>{
+    const isBest=r.Model===bestKey,isErr=r.Status!=='OK';
+    const cls=r.R2_Test>=0.9?'good':r.R2_Test>=0.6?'ok':'bad';
+    const sc=isErr?`<span class="ebadge">${(r.Err||'ERR').slice(0,30)}</span>`:'<span class="good">✓ OK</span>';
+    return `<tr class="${isBest?'best':''}" style="${isErr?'opacity:.55;':''}">
+      <td>${r.Model}${isBest?'<span class="bbadge">★ Best</span>':''}${isErr?'<span class="ebadge" style="margin-left:5px;">ERR</span>':''}</td>
+      <td>${r.R2_Train||'—'}</td><td class="${isErr?'dm':cls}">${r.R2_Test||'—'}</td>
+      <td>${r.RMSE_Train||'—'}</td><td>${r.RMSE_Test||'—'}</td>
+      <td>${r.MAE_Train||'—'}</td><td>${r.MAE_Test||'—'}</td>
+      <td class="dm">${r.RunTime}s</td><td>${sc}</td></tr>`;
+  }).join('');
+}
+
+function srt(col){
+  sortDir[col]=!sortDir[col];
+  const ok=results.filter(r=>r.Status==='OK');
+  if(!ok.length)return;
+  const best=ok.reduce((a,b)=>b.R2_Test>a.R2_Test?b:a,ok[0]);
+  const all=[...results].sort((a,b)=>{
+    const av=a[col]??'',bv=b[col]??'';
+    return typeof av==='number'?(sortDir[col]?bv-av:av-bv):(sortDir[col]?String(bv).localeCompare(String(av)):String(av).localeCompare(String(bv)));
+  });
+  renderTbl(all,best.Model);
+}
+
+function filterTbl(q){
+  document.querySelectorAll('#rbody tr').forEach(r=>{
+    r.style.display=r.cells[0].textContent.toLowerCase().includes(q.toLowerCase())?'':'none';
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   CHARTS
+═══════════════════════════════════════════════════════ */
+const C={grid:'#2c3158',txt:'#64748b',cy:'#6366f1',cyA:'#6366f144',gn:'#10b981',gnA:'#10b98144',am:'#f59e0b',amA:'#f59e0b44',pu:'#8b5cf6',puA:'#8b5cf644',rd:'#ef4444',rdA:'#ef444444',in2:'#818cf8',in2A:'#818cf844'};
+function bcfg(){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:C.txt,font:{family:'IBM Plex Mono',size:10},boxWidth:12}}},scales:{x:{ticks:{color:C.txt,font:{size:9},maxRotation:35},grid:{color:C.grid}},y:{ticks:{color:C.txt,font:{size:9}},grid:{color:C.grid}}}};}
+function mkChart(cid,type,data,opts){if(charts[cid])charts[cid].destroy();charts[cid]=new Chart(id(cid),{type,data,options:opts});}
+
+function buildCharts(sorted,best){
+  const lbls=sorted.map(r=>r.Model);
+  mkChart('ch-r2','bar',{labels:lbls,datasets:[
+    {label:'R² Train',data:sorted.map(r=>r.R2_Train),backgroundColor:C.cyA,borderColor:C.cy,borderWidth:1.5,borderRadius:3},
+    {label:'R² Test', data:sorted.map(r=>r.R2_Test), backgroundColor:C.gnA,borderColor:C.gn,borderWidth:1.5,borderRadius:3}
+  ]},bcfg());
+  mkChart('ch-rmse','bar',{labels:lbls,datasets:[
+    {label:'RMSE Train',data:sorted.map(r=>r.RMSE_Train),backgroundColor:C.amA,borderColor:C.am,borderWidth:1.5,borderRadius:3},
+    {label:'RMSE Test', data:sorted.map(r=>r.RMSE_Test), backgroundColor:C.puA,borderColor:C.pu,borderWidth:1.5,borderRadius:3}
+  ]},bcfg());
+  if(preds.test[best.Model]){
+    const act=preds.Yts,pred=preds.test[best.Model];
+    const mn=Math.min(...act,...pred),mx=Math.max(...act,...pred);
+    mkChart('ch-scat','scatter',{datasets:[
+      {label:best.Model,data:act.map((a,i)=>({x:a,y:pred[i]})),backgroundColor:C.cyA,borderColor:C.cy,pointRadius:3,pointHoverRadius:5},
+      {label:'Perfect fit',data:[{x:mn,y:mn},{x:mx,y:mx}],type:'line',borderColor:C.gn,borderDash:[5,4],pointRadius:0,backgroundColor:'transparent',borderWidth:1.5}
+    ]},{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:C.txt,font:{family:'IBM Plex Mono',size:10},boxWidth:12}}},
+      scales:{x:{title:{display:true,text:'Actual',color:C.txt,font:{size:10}},ticks:{color:C.txt,font:{size:9}},grid:{color:C.grid}},
+              y:{title:{display:true,text:'Predicted',color:C.txt,font:{size:10}},ticks:{color:C.txt,font:{size:9}},grid:{color:C.grid}}}});
+  }
+  const hcfg={...bcfg(),indexAxis:'y'};hcfg.scales={x:{ticks:{color:C.txt,font:{size:9}},grid:{color:C.grid}},y:{ticks:{color:C.txt,font:{size:9}},grid:{color:C.grid}}};
+  mkChart('ch-time','bar',{labels:sorted.map(r=>r.Model),datasets:[{label:'Run time (s)',data:sorted.map(r=>r.RunTime),backgroundColor:C.puA,borderColor:C.pu,borderWidth:1.5,borderRadius:3}]},hcfg);
+  mkChart('ch-mae','bar',{labels:lbls,datasets:[
+    {label:'MAE Train',data:sorted.map(r=>r.MAE_Train),backgroundColor:C.rdA,borderColor:C.rd,borderWidth:1.5,borderRadius:3},
+    {label:'MAE Test', data:sorted.map(r=>r.MAE_Test), backgroundColor:C.amA,borderColor:C.am,borderWidth:1.5,borderRadius:3}
+  ]},bcfg());
+  const gaps=sorted.map(r=>Math.max(0,r.R2_Train-r.R2_Test));
+  mkChart('ch-gap','bar',{labels:sorted.map(r=>r.Model),datasets:[{label:'R² gap',data:gaps,
+    backgroundColor:gaps.map(g=>g>0.15?C.rdA:g>0.05?C.amA:C.gnA),
+    borderColor:gaps.map(g=>g>0.15?C.rd:g>0.05?C.am:C.gn),borderWidth:1.5,borderRadius:3}]},bcfg());
+}
+
+/* ═══════════════════════════════════════════════════════
+   DOWNLOADS
+═══════════════════════════════════════════════════════ */
+function dl(name,txt){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download=name;a.click();}
+function dlCSV(){if(!results.length)return;dl('ml_results.csv',['Model,R2_Train,R2_Test,RMSE_Train,RMSE_Test,MAE_Train,MAE_Test,RunTime,Status',...results.map(r=>`${r.Model},${r.R2_Train},${r.R2_Test},${r.RMSE_Train},${r.RMSE_Test},${r.MAE_Train},${r.MAE_Test},${r.RunTime},${r.Status}`)].join('\n'));}
+function dlPredTs(){if(!preds.Yts.length)return;const ms=Object.keys(preds.test);dl('predictions_test.csv',[['Actual',...ms].join(','),...preds.Yts.map((y,i)=>[y,...ms.map(m=>preds.test[m]?.[i]??'')].join(','))].join('\n'));}
+function dlPredTr(){if(!preds.Ytr.length)return;const ms=Object.keys(preds.train);dl('predictions_train.csv',[['Actual',...ms].join(','),...preds.Ytr.map((y,i)=>[y,...ms.map(m=>preds.train[m]?.[i]??'')].join(','))].join('\n'));}
+
+/* ═══════════════════════════════════════════════════════
+   CODE GENERATOR  (produces sklearn Colab code)
+═══════════════════════════════════════════════════════ */
+function minst(key){
+  switch(key){
+    case 'LR':  return 'LinearRegression()';
+    case 'Ridge':return `Ridge(alpha=${gp('Ridge','alpha',1.0)})`;
+    case 'Lasso':return `Lasso(alpha=${gp('Lasso','alpha',0.001)},max_iter=${gp('Lasso','mxi',5000)},random_state=1)`;
+    case 'EN':  return `ElasticNet(alpha=${gp('EN','alpha',0.001)},l1_ratio=${gp('EN','l1r',0.5)},max_iter=${gp('EN','mxi',5000)},random_state=1)`;
+    case 'DTR': return `DecisionTreeRegressor(max_depth=${gp('DTR','md',4)},min_samples_leaf=${gp('DTR','msl',2)},min_samples_split=${gp('DTR','mss',2)},random_state=1)`;
+    case 'ABR': return `AdaBoostRegressor(n_estimators=${gp('ABR','ne',45)},learning_rate=${gp('ABR','lr',0.35)},loss='${gp('ABR','loss','exponential')}',random_state=1)`;
+    case 'GBR': return `GradientBoostingRegressor(n_estimators=${gp('GBR','ne',45)},learning_rate=${gp('GBR','lr',0.35)},max_depth=${gp('GBR','md',4)},subsample=${gp('GBR','sub',1.0)},random_state=1)`;
+    case 'HGBR':return `HistGradientBoostingRegressor(learning_rate=${gp('HGBR','lr',0.10)},max_depth=${gp('HGBR','md',4)},max_iter=${gp('HGBR','mxi',100)},min_samples_leaf=${gp('HGBR','msl',20)},random_state=1)`;
+    case 'RFR': return `RandomForestRegressor(n_estimators=${gp('RFR','ne',45)},max_depth=${gp('RFR','md',4)},min_samples_leaf=${gp('RFR','msl',1)},random_state=1,n_jobs=-1)`;
+    case 'ETR': return `ExtraTreesRegressor(n_estimators=${gp('ETR','ne',45)},max_depth=${gp('ETR','md',4)},min_samples_leaf=${gp('ETR','msl',1)},random_state=1,n_jobs=-1)`;
+    case 'BGR': return `BaggingRegressor(n_estimators=${gp('BGR','ne',45)},max_samples=${gp('BGR','ms',1.0)},max_features=${gp('BGR','mf',1.0)},random_state=1)`;
+    case 'SVR': return `SVR(kernel='${gp('SVR','ker','rbf')}',C=${gp('SVR','C',10000)},epsilon=${gp('SVR','eps',10)},degree=${gp('SVR','deg',4)},gamma='scale')`;
+    case 'KNN': return `KNeighborsRegressor(n_neighbors=${gp('KNN','k',5)},weights='${gp('KNN','wt','uniform')}',algorithm='${gp('KNN','alg','auto')}',p=${gp('KNN','p',2)})`;
+    case 'XGB': return `xgb.XGBRegressor(n_estimators=${gp('XGB','ne',45)},max_depth=${gp('XGB','md',4)},learning_rate=${gp('XGB','lr',0.35)},alpha=${gp('XGB','a',0.2)},subsample=${gp('XGB','sub',1.0)},colsample_bytree=${gp('XGB','cbt',1.0)},random_state=1,verbosity=0)`;
+    case 'MLP':{const l1=gp('MLP','l1',100),l2=gp('MLP','l2',50);const hl=l2>0?`(${l1},${l2})`:`(${l1},)`;
+      return `MLPRegressor(hidden_layer_sizes=${hl},activation='${gp('MLP','act','relu')}',solver='${gp('MLP','solv','adam')}',alpha=${gp('MLP','alp',0.0001)},learning_rate='${gp('MLP','lrt','constant')}',max_iter=${gp('MLP','mxi',5000)},random_state=1)`;}
+    default:return 'LinearRegression()';
+  }
+}
+
+function genCode(){
+  const todo=enabledList();
+  const tsz=id('tsz')?.value||'0.20',rsd=id('rsd')?.value||'1',shuf=id('shuf')?.value||'True';
+  const useScaler=id('use-scaler')?.checked??true;
+  const mLines=todo.map(m=>`    '${m.key==='EN'?'ElasticNet':m.key}': ${minst(m.key)},`).join('\n');
+  const splitBlock=splitMode==='auto'?`
+df = pd.read_excel('PROJECT.xlsx', sheet_name='M')
+X = df.iloc[:, :-1].values;  Y = df.iloc[:, -1].values
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=${tsz}, random_state=${rsd}, shuffle=${shuf})`:`
+df_tr = pd.read_excel('PROJECT.xlsx', sheet_name='TR')
+df_ts = pd.read_excel('PROJECT.xlsx', sheet_name='TS')
+X_train = df_tr.iloc[:,:-1].values.astype(float);  Y_train = df_tr.iloc[:,-1].values.astype(float)
+X_test  = df_ts.iloc[:,:-1].values.astype(float);  Y_test  = df_ts.iloc[:,-1].values.astype(float)`;
+  const scalBlock=useScaler?`\nscaler = StandardScaler()\nX_train = scaler.fit_transform(X_train)\nX_test  = scaler.transform(X_test)`:`# Scaling disabled`;
+  return `# ═══════════════════════════════════════════════════
+# ML WORKBENCH — Auto-Generated Training Script
+# Models : ${todo.map(m=>m.key==='EN'?'ElasticNet':m.key).join(', ')}
+# Split  : ${splitMode==='auto'?`auto  test_size=${tsz}  seed=${rsd}`:'manual (pre-split)'}
+# Scaler : ${useScaler?'StandardScaler':'None'}
+# ═══════════════════════════════════════════════════
+
+from google.colab import drive
+drive.mount('/content/gdrive')
+
+import pandas as pd, numpy as np, joblib, time, warnings
+warnings.filterwarnings('ignore')
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import (AdaBoostRegressor, GradientBoostingRegressor,
+    HistGradientBoostingRegressor, RandomForestRegressor,
+    ExtraTreesRegressor, BaggingRegressor)
+from sklearn.svm import SVR
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neural_network import MLPRegressor
+import xgboost as xgb
+
+# ── Data ─────────────────────────────────────${splitBlock}
+X_train=X_train.astype(float); X_test=X_test.astype(float)
+Y_train=Y_train.astype(float); Y_test=Y_test.astype(float)
+${scalBlock}
+
+# ── Models ───────────────────────────────────
+models = {
+${mLines}
+}
+
+# ── Training ─────────────────────────────────
+metrics = {}
+pred_tr = {}; pred_ts = {}
+for name, model in models.items():
+    print(f'  Training {name}...')
+    t0 = time.time()
+    model.fit(X_train, Y_train)
+    p_tr = model.predict(X_train); p_ts = model.predict(X_test)
+    pred_tr[name]=p_tr; pred_ts[name]=p_ts
+    metrics[name]={
+        'R2_Train': round(r2_score(Y_train,p_tr),4),
+        'R2_Test' : round(r2_score(Y_test,p_ts),4),
+        'RMSE_Train':round(float(np.sqrt(mean_squared_error(Y_train,p_tr))),4),
+        'RMSE_Test' :round(float(np.sqrt(mean_squared_error(Y_test,p_ts))),4),
+        'MAE_Train' :round(mean_absolute_error(Y_train,p_tr),4),
+        'MAE_Test'  :round(mean_absolute_error(Y_test,p_ts),4),
+        'Time_s'    :round(time.time()-t0,4)
+    }
+
+# ── Results ──────────────────────────────────
+res=pd.DataFrame(metrics).T.reset_index().rename(columns={'index':'Model'})
+print('\\n'+res.to_string(index=False))
+res.to_excel('Model_Results.xlsx',index=False)
+
+# ── Predictions ──────────────────────────────
+with pd.ExcelWriter('Predictions.xlsx') as w:
+    tr=pd.DataFrame(pred_tr); tr.insert(0,'Actual',Y_train); tr.to_excel(w,'Train',index=False)
+    ts=pd.DataFrame(pred_ts); ts.insert(0,'Actual',Y_test);  ts.to_excel(w,'Test', index=False)
+
+# ── Best Model ───────────────────────────────
+best=res.loc[res['R2_Test'].idxmax(),'Model']
+print(f'\\nBest: {best}  R2_test={res.loc[res["Model"]==best,"R2_Test"].values[0]}')
+joblib.dump(models[best],f'{best}_model.joblib')
+print('Saved.')
+`;
+}
+
+function refreshCode(){
+  const code=genCode();
+  id('codepre').textContent=code;
+  const todo=enabledList();
+  id('cfg-sum').innerHTML=[
+    ['Split Mode',splitMode==='auto'?'Automatic':'Manual'],
+    ['Test Size',id('tsz')?.value||'0.20'],
+    ['Random State',id('rsd')?.value||'1'],
+    ['StandardScaler',id('use-scaler')?.checked?'On':'Off'],
+    ['Models Enabled',todo.length+'/'+MODELS.length],
+    ['Active',todo.map(m=>m.key).join(', ')],
+  ].map(([k,v])=>`<div style="margin-bottom:6px"><div class="xs" style="color:var(--faint)">${k}</div><div class="b sm" style="word-break:break-all">${v}</div></div>`).join('');
+}
+function copyCode(){
+  const b=id('copybtn');
+  navigator.clipboard.writeText(id('codepre').textContent||genCode()).then(()=>{b.textContent='✓ Copied!';setTimeout(()=>b.textContent='⧉ Copy',2000);});
+}
+function dlCode(){dl('ml_workbench_script.py',id('codepre').textContent||genCode());}
+
+/* ═══════════════════════════════════════════════════════
+   UI — TABS / SPLIT / FILE OPS
+═══════════════════════════════════════════════════════ */
+function goTab(i){
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
+  document.querySelectorAll('.page').forEach((p,j)=>p.classList.toggle('active',i===j));
+  if(i===1)refreshCode();
+}
+function renderSplit(){
+  id('auto-mode').style.display=splitMode==='auto'?'':'none';
+  id('manual-mode').style.display=splitMode==='manual'?'':'none';
+}
+function dzOver(e,d){e.preventDefault();id(d).classList.add('over');}
+function dzLeave(d){id(d).classList.remove('over');}
+function handleDrop(e,k){e.preventDefault();dzLeave('dz-'+k);readCSV(e.dataTransfer.files[0],k);}
+function loadFile(e,k){readCSV(e.target.files[0],k);}
+function readCSV(f,k){
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    csvData[k]=ev.target.result;
+    const lines=ev.target.result.trim().split('\n');
+    const cols=lines[0].split(',').length;
+    const b=id('b-'+k);
+    if(b)b.innerHTML=`<div class="fbadge">✓ ${f.name} — ${lines.length-1} rows × ${cols} cols</div>`;
+    if(k==='main'||k==='train')renderPreview(ev.target.result);
+  };
+  r.readAsText(f);
+}
+function renderPreview(csv){
+  const lines=csv.trim().split('\n');
+  const hdrs=lines[0].split(',').map(h=>h.trim());
+  id('dinfo').innerHTML=`<span>${lines.length-1} rows</span><span>·</span><span>${hdrs.length} cols</span><span>·</span><span class="cy b">Target: ${hdrs[hdrs.length-1]}</span>`;
+  let h='<table><thead><tr>'+hdrs.map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>';
+  lines.slice(1,9).forEach(r=>{h+='<tr>'+r.split(',').map(c=>`<td>${c.trim()}</td>`).join('')+'</tr>';});
+  h+='</tbody></table>';
+  id('prev-tbl').innerHTML=h;id('prev-card').style.display='';
+}
+function validateData(){
+  const ok=splitMode==='auto'?!!csvData.main:(!!csvData.train&&!!csvData.test);
+  if(!ok){id('vmsg').textContent='⚠ Please upload the required CSV file(s).';return;}
+  id('vmsg').textContent='';goTab(1);
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODEL DEFINITIONS + GRID
+═══════════════════════════════════════════════════════ */
+const MODELS=[
+  {key:'LR',   name:'Linear Regression',      tag:'tln',params:[]},
+  {key:'Ridge',name:'Ridge Regression',        tag:'tln',params:[{id:'alpha',l:'alpha',t:'n',def:1.0,s:0.1,mn:1e-6}]},
+  {key:'Lasso',name:'Lasso Regression',        tag:'tln',params:[{id:'alpha',l:'alpha',t:'n',def:0.001,s:0.001,mn:1e-6},{id:'mxi',l:'max_iter',t:'n',def:1000,s:200,mn:100}]},
+  {key:'EN',   name:'Elastic Net',             tag:'tln',params:[{id:'alpha',l:'alpha',t:'n',def:0.001,s:0.001,mn:1e-6},{id:'l1r',l:'l1_ratio',t:'n',def:0.5,s:0.05,mn:0,mx:1},{id:'mxi',l:'max_iter',t:'n',def:1000,s:200,mn:100}]},
+  {key:'DTR',  name:'Decision Tree',           tag:'ttr',params:[{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'msl',l:'min_samp_leaf',t:'n',def:2,s:1,mn:1},{id:'mss',l:'min_samp_split',t:'n',def:2,s:1,mn:2}]},
+  {key:'ABR',  name:'AdaBoost',                tag:'tbo',params:[{id:'ne',l:'n_estimators',t:'n',def:45,s:5,mn:5},{id:'lr',l:'learning_rate',t:'n',def:0.35,s:0.05,mn:1e-4},{id:'loss',l:'loss',t:'s',def:'exponential',opts:['linear','square','exponential']}]},
+  {key:'GBR',  name:'Gradient Boosting',       tag:'tbo',params:[{id:'ne',l:'n_estimators',t:'n',def:45,s:5,mn:5},{id:'lr',l:'learning_rate',t:'n',def:0.35,s:0.05,mn:1e-4},{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'sub',l:'subsample',t:'n',def:1.0,s:0.05,mn:0.1,mx:1}]},
+  {key:'HGBR', name:'Hist GradBoost',          tag:'tbo',params:[{id:'lr',l:'learning_rate',t:'n',def:0.10,s:0.01,mn:1e-4},{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'mxi',l:'max_iter',t:'n',def:100,s:10,mn:10},{id:'msl',l:'min_samp_leaf',t:'n',def:20,s:5,mn:1}]},
+  {key:'RFR',  name:'Random Forest',           tag:'tfo',params:[{id:'ne',l:'n_estimators',t:'n',def:45,s:5,mn:5},{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'msl',l:'min_samp_leaf',t:'n',def:1,s:1,mn:1}]},
+  {key:'ETR',  name:'Extra Trees',             tag:'tfo',params:[{id:'ne',l:'n_estimators',t:'n',def:45,s:5,mn:5},{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'msl',l:'min_samp_leaf',t:'n',def:1,s:1,mn:1}]},
+  {key:'BGR',  name:'Bagging',                 tag:'tfo',params:[{id:'ne',l:'n_estimators',t:'n',def:45,s:5,mn:5},{id:'ms',l:'max_samples',t:'n',def:1.0,s:0.1,mn:0.1,mx:1},{id:'mf',l:'max_features',t:'n',def:1.0,s:0.1,mn:0.1,mx:1}]},
+  {key:'SVR',  name:'Support Vector (SVR)',    tag:'tot',params:[{id:'ker',l:'kernel',t:'s',def:'rbf',opts:['linear','poly','rbf','sigmoid']},{id:'C',l:'C',t:'n',def:10000,s:1000,mn:0.001},{id:'eps',l:'epsilon',t:'n',def:10,s:1,mn:1e-6},{id:'deg',l:'degree (poly)',t:'n',def:4,s:1,mn:1,mx:10}]},
+  {key:'KNN',  name:'K-Nearest Neighbors',     tag:'tot',params:[{id:'k',l:'n_neighbors',t:'n',def:5,s:1,mn:1},{id:'wt',l:'weights',t:'s',def:'uniform',opts:['uniform','distance']},{id:'alg',l:'algorithm',t:'s',def:'auto',opts:['auto','ball_tree','kd_tree','brute']},{id:'p',l:'p (metric)',t:'n',def:2,s:1,mn:1,mx:5}]},
+  {key:'XGB',  name:'XGBoost',                 tag:'tbo',params:[{id:'ne',l:'n_estimators',t:'n',def:45,s:5,mn:5},{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'lr',l:'learning_rate',t:'n',def:0.35,s:0.05,mn:1e-4},{id:'a',l:'alpha (L1)',t:'n',def:0.2,s:0.05,mn:0},{id:'sub',l:'subsample',t:'n',def:1.0,s:0.05,mn:0.1,mx:1},{id:'cbt',l:'colsample_bytree',t:'n',def:1.0,s:0.05,mn:0.1,mx:1}]},
+  {key:'MLP',  name:'Neural Network (MLP)',    tag:'tot',params:[{id:'l1',l:'Layer 1 size',t:'n',def:100,s:10,mn:1},{id:'l2',l:'Layer 2 size',t:'n',def:50,s:10,mn:0},{id:'act',l:'activation',t:'s',def:'relu',opts:['relu','tanh','logistic','identity']},{id:'solv',l:'solver',t:'s',def:'adam',opts:['adam','sgd','lbfgs']},{id:'alp',l:'alpha (L2)',t:'n',def:0.0001,s:0.0001,mn:0},{id:'lrt',l:'lr schedule',t:'s',def:'constant',opts:['constant','invscaling','adaptive']},{id:'mxi',l:'max_iter',t:'n',def:300,s:50,mn:50}]}
+];
+
+function buildGrid(){
+  const catMap={tln:'cat-ln',ttr:'cat-tr',tbo:'cat-bo',tfo:'cat-fo',tot:'cat-ot'};
+  id('mgrid').innerHTML=MODELS.map(m=>{
+    const paramHtml = m.params.length===0
+      ? '<span class="m-no-params">no hyperparameters</span>'
+      : '<div class="m-params">'+m.params.map(p=>pf(m.key,p)).join('')+'</div>';
+    return `<div class="model-row on ${catMap[m.tag]||''}" id="mc-${m.key}">
+      <label class="tgl"><input type="checkbox" id="tg-${m.key}" checked onchange="onTgl('${m.key}',this.checked)"><span class="tgl-sl"></span></label>
+      <span class="m-badge ${m.tag}">${m.key}</span>
+      <span class="m-name">${m.name}</span>
+      ${paramHtml}
+    </div>`;
+  }).join('');
+  updCount();
+}
+function pf(mk,p){
+  if(p.t==='s'){
+    const opts=p.opts.map(o=>`<option value="${o}"${o===p.def?' selected':''}>${o}</option>`).join('');
+    return `<span class="punit"><span class="pl">${p.l}</span><select id="p-${mk}-${p.id}">${opts}</select></span>`;
+  }
+  const ex=[p.s!=null?`step="${p.s}"`:'',p.mn!=null?`min="${p.mn}"`:'',p.mx!=null?`max="${p.mx}"`:''].join(' ');
+  return `<span class="punit"><span class="pl">${p.l}</span><input type="number" id="p-${mk}-${p.id}" value="${p.def}" ${ex}></span>`;
+}
+function onTgl(k,on){
+  const el=id('mc-'+k);
+  const cats=['cat-ln','cat-tr','cat-bo','cat-fo','cat-ot'];
+  const existingCat=cats.find(c=>el.classList.contains(c))||'';
+  el.className='model-row '+(on?'on '+existingCat:'off '+existingCat);
+  updCount();
+}
+function toggleAll(on){MODELS.forEach(m=>{id('tg-'+m.key).checked=on;onTgl(m.key,on);});}
+function updCount(){const n=MODELS.filter(m=>id('tg-'+m.key)?.checked).length;id('ecnt').textContent=n;}
+function resetAll(){MODELS.forEach(m=>{m.params.forEach(p=>{const e=id(`p-${m.key}-${p.id}`);if(e)e.value=p.def;});id('tg-'+m.key).checked=true;onTgl(m.key,true);});}
+function enabled(k){return id('tg-'+k)?.checked??false;}
+function enabledList(){return MODELS.filter(m=>enabled(m.key));}
+function gp(k,pid,def){const e=id(`p-${k}-${pid}`);if(!e)return def;return e.tagName==='SELECT'?e.value:(parseFloat(e.value)||def);}
+
+/* ═══════════════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════════════ */
+buildGrid();
+renderSplit();
+setStatus('ready');
+
+</script>
+</body>
+</html>
