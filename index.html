@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ML Workbench — Regression Platform</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════ RESET & BASE ═══════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:#f5f6f8;color:#1a1a2e;font-family:Calibri,'Segoe UI',Arial,sans-serif;font-size:13px;min-height:100vh;}
+input,select,button,label,textarea{font-family:Calibri,'Segoe UI',Arial,sans-serif;}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:#c8ccda;border-radius:3px;}
+
+/* ═══════════════════════ HEADER ═══════════════════════ */
+.hdr{background:linear-gradient(90deg,#0d2d4a 0%,#1a4a6b 100%);color:#fff;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;height:50px;box-shadow:0 2px 6px rgba(0,0,0,.2);}
+.hdr-left{display:flex;align-items:center;gap:10px;}
+.hdr-badge{background:#e8a020;color:#fff;font-size:12px;font-weight:700;
+  padding:4px 11px;border-radius:6px;letter-spacing:.04em;}
+.hdr-title{font-size:15px;font-weight:700;letter-spacing:.02em;}
+.hdr-sub{font-size:11px;color:rgba(255,255,255,.65);margin-top:1px;}
+.hdr-right{display:flex;align-items:center;gap:10px;}
+.spill{padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;
+  background:#f0f2f5;border:1px solid #d8dce6;
+  color:#5a6072;display:flex;align-items:center;gap:6px;}
+.spill .sd{width:7px;height:7px;border-radius:50%;background:#c8ccda;}
+.spill.ready .sd{background:#43a047;box-shadow:0 0 6px #43a047;}
+.spill.ready{color:#1e5631;background:#e6f4ea;border-color:#a5d6a7;}
+.spill.training .sd{background:#e8a020;animation:bk .5s infinite;}
+.spill.training{color:#6b3d09;background:#fef3e2;border-color:#f6c77a;}
+.spill.error .sd{background:#e53935;}
+.spill.error{color:#7b1f1f;background:#fde8e8;border-color:#ef9a9a;}
+@keyframes bk{0%,100%{opacity:1;}50%{opacity:.2;}}
+
+/* ═══════════════════════ TABS ═══════════════════════ */
+.tabs{background:#fff;border-bottom:1px solid #eaecf2;
+  display:flex;padding:0 18px;height:38px;}
+.tab{padding:0 20px;height:100%;font-size:11px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;
+  color:#5a6072;background:none;border:none;border-bottom:2px solid transparent;
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:7px;}
+.tab:hover{color:#1a1a2e;}
+.tab.on{color:#0d2d4a;border-bottom-color:#0d2d4a;}
+.tab .tn{width:18px;height:18px;border-radius:4px;background:#f0f2f5;
+  border:1px solid #eaecf2;color:#5a6072;font-size:9px;
+  display:flex;align-items:center;justify-content:center;}
+.tab.on .tn{background:#e8f0fe;color:#0d2d4a;border-color:#b0c8e8;}
+
+/* ═══════════════════════ PAGES ═══════════════════════ */
+.page{display:none;}.page.on{display:block;}
+
+/* ═══════════════════════ WORKBENCH LAYOUT ═══════════════════════ */
+.wb{display:flex;height:calc(100vh - 88px);overflow:hidden;}
+
+/* LEFT PANEL */
+.lp{width:270px;flex-shrink:0;background:#fff;border-right:1px solid #eaecf2;
+  display:flex;flex-direction:column;overflow-y:auto;}
+.ls{padding:11px 13px;border-bottom:1px solid #eaecf2;}
+.lt{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:#5a6072;margin-bottom:9px;display:flex;align-items:center;gap:6px;}
+.lt::before{content:'';width:2px;height:10px;background:#0d2d4a;border-radius:2px;}
+
+/* Split radio cards */
+.rg{display:flex;flex-direction:column;gap:5px;}
+.rc{border:1px solid #d8dce6;border-radius:6px;padding:7px 10px;
+  cursor:pointer;display:flex;align-items:flex-start;gap:8px;
+  background:#fff;transition:all .15s;}
+.rc:hover{background:#f7f8fc;}
+.rc:has(input:checked){border-color:#0d2d4a;background:#e8f0fe;}
+.rc input[type=radio]{accent-color:#0d2d4a;margin-top:2px;flex-shrink:0;}
+.rc-t{font-size:12px;font-weight:600;color:#1a1a2e;margin-bottom:2px;}
+.rc-d{font-size:10px;color:#5a6072;}
+
+/* File upload — PLAIN RELIABLE APPROACH */
+.fu{margin-bottom:8px;}
+.fu-lbl{font-size:10px;font-weight:600;color:#5a6072;text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:4px;display:block;}
+.fu-row{display:flex;align-items:center;gap:6px;}
+.fu-btn{padding:6px 12px;background:#0d2d4a;color:#fff;border:none;
+  border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;
+  white-space:nowrap;transition:background .15s;}
+.fu-btn:hover{background:#1a4a6b;}
+.fu-name{font-size:10px;color:#5a6072;flex:1;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
+.fu-ok{font-size:10px;font-weight:700;color:#1e5631;background:#e6f4ea;
+  border:1px solid #a5d6a7;padding:2px 8px;border-radius:10px;white-space:nowrap;}
+/* The actual file input — hidden, triggered by button */
+.fu input[type=file]{display:none;}
+
+/* Small form elements */
+.fg{margin-bottom:8px;}
+.fl{font-size:10px;color:#5a6072;text-transform:uppercase;letter-spacing:.04em;
+  font-weight:600;margin-bottom:3px;display:block;}
+.fi,.fs{width:100%;padding:5px 8px;background:#fff;border:1px solid #d8dce6;
+  border-radius:5px;color:#1a1a2e;font-size:12px;outline:none;
+  transition:border-color .15s;-webkit-appearance:none;}
+.fi:focus,.fs:focus{border-color:#0d2d4a;}
+.fs option{background:#fff;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+
+/* Scaler row */
+.scr{display:flex;align-items:center;justify-content:space-between;
+  padding:8px 10px;background:#f0f2f5;border:1px solid #eaecf2;border-radius:6px;}
+.scr-t{font-size:12px;font-weight:600;color:#1a1a2e;}
+.scr-d{font-size:10px;color:#5a6072;}
+/* Toggle switch */
+.tgl{position:relative;width:36px;height:20px;flex-shrink:0;cursor:pointer;}
+.tgl input{opacity:0;width:0;height:0;position:absolute;}
+.tsl{position:absolute;inset:0;background:#d8dce6;border-radius:20px;transition:.2s;}
+.tsl::before{content:'';position:absolute;width:14px;height:14px;
+  left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;
+  box-shadow:0 1px 3px rgba(0,0,0,.15);}
+.tgl input:checked+.tsl{background:#0d2d4a;}
+.tgl input:checked+.tsl::before{transform:translateX(16px);}
+
+/* Console */
+.con{background:#f0f2f5;border:1px solid #eaecf2;border-radius:6px;
+  padding:7px 10px;font-family:Consolas,'Courier New',monospace;font-size:10px;
+  height:72px;overflow-y:auto;line-height:1.7;}
+.ll{color:#9ca3af;}.lok{color:#1e5631;font-weight:500;}
+.le{color:#7b1f1f;font-weight:500;}.li{color:#1a3a6b;}.lw{color:#6b3d09;}
+
+/* Progress bar */
+.pb{background:#eaecf2;border-radius:3px;height:5px;overflow:hidden;margin:5px 0;}
+.pf{height:100%;background:linear-gradient(90deg,#0d2d4a,#1a4a6b);
+  border-radius:3px;transition:width .3s ease;}
+
+/* Train area */
+.ta{padding:10px 13px;background:#f0f2f5;border-top:1px solid #eaecf2;
+  margin-top:auto;flex-shrink:0;}
+.btn-run{width:100%;padding:10px;border-radius:7px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#0d2d4a,#1a4a6b);color:#fff;
+  font-size:13px;font-weight:700;letter-spacing:.03em;
+  box-shadow:0 2px 6px rgba(13,45,74,.25);transition:all .15s;}
+.btn-run:hover:not(:disabled){filter:brightness(1.1);
+  box-shadow:0 3px 10px rgba(13,45,74,.35);}
+.btn-run:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;}
+.btn-stop{width:100%;margin-top:5px;padding:6px;border-radius:6px;
+  border:1px solid #d8dce6;cursor:pointer;background:#fff;
+  color:#5a6072;font-size:11px;font-weight:600;transition:all .15s;}
+.btn-stop:hover:not(:disabled){border-color:#e53935;color:#7b1f1f;background:#fde8e8;}
+.btn-stop:disabled{opacity:.35;cursor:not-allowed;}
+.pi{display:flex;justify-content:space-between;font-size:10px;color:#5a6072;}
+.em{font-size:10px;color:#e53935;margin-top:4px;display:block;min-height:14px;}
+
+/* RIGHT PANEL — MODEL LIST */
+.rp{flex:1;display:flex;flex-direction:column;background:#f5f6f8;overflow:hidden;}
+.rt{padding:7px 13px;background:#fff;border-bottom:1px solid #eaecf2;
+  display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;min-height:40px;}
+.rt-title{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5a6072;}
+.bsm{padding:3px 10px;border-radius:5px;border:1px solid #d8dce6;cursor:pointer;
+  background:#fff;color:#5a6072;font-size:10px;font-weight:600;
+  letter-spacing:.05em;text-transform:uppercase;transition:all .15s;}
+.bsm:hover{background:#0d2d4a;color:#fff;border-color:#0d2d4a;}
+.ec{font-size:11px;color:#5a6072;margin-left:auto;}
+.ec span{color:#0d2d4a;font-weight:700;}
+.ml{flex:1;overflow-y:auto;padding:6px 10px;}
+
+/* Model rows */
+.mr{display:flex;align-items:center;padding:5px 10px;border-radius:6px;
+  border:1px solid #eaecf2;margin-bottom:4px;background:#fff;
+  gap:8px;min-height:34px;transition:all .12s;
+  border-left:3px solid #eaecf2;}
+.mr:hover{background:#f7f8fc;}
+.mr.on{}.mr.off{opacity:.38;}
+.mr.on.cln{border-left-color:#1a4a6b;}
+.mr.on.ctr{border-left-color:#43a047;}
+.mr.on.cbo{border-left-color:#f59400;}
+.mr.on.cfo{border-left-color:#0097a7;}
+.mr.on.cot{border-left-color:#7e57c2;}
+
+/* Model badge */
+.mb{font-size:9px;font-weight:700;padding:2px 0;border-radius:10px;
+  letter-spacing:.05em;text-transform:uppercase;
+  width:46px;text-align:center;flex-shrink:0;}
+.bln{background:#e8f0fe;color:#1a3a6b;}
+.btr{background:#e6f4ea;color:#1e5631;}
+.bbo{background:#fef3e2;color:#6b3d09;}
+.bfo{background:#e0f4f6;color:#004d54;}
+.bot{background:#ede7f6;color:#3d2175;}
+.mn{font-size:12px;font-weight:600;color:#1a1a2e;
+  width:158px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mp{display:flex;align-items:center;flex-wrap:nowrap;gap:6px;flex:1;overflow:hidden;}
+.pu{display:inline-flex;align-items:center;gap:3px;flex-shrink:0;}
+.pl{font-size:9px;color:#1a1a2e;white-space:nowrap;font-weight:600;}
+.pu input,.pu select{padding:3px 5px;background:#f7f8fc;border:1px solid #d8dce6;
+  border-radius:4px;color:#1a1a2e;font-size:11px;outline:none;transition:border-color .15s;}
+.pu input{width:54px;}
+.pu select{width:72px;-webkit-appearance:none;}
+.pu input:focus,.pu select:focus{border-color:#0d2d4a;background:#fff;}
+.np{font-size:10px;color:#aab0c0;font-style:italic;}
+
+/* ═══════════════════════ RESULTS ═══════════════════════ */
+.rs{background:#f5f6f8;border-top:2px solid #0d2d4a;
+  padding:14px 18px;overflow-y:auto;max-height:calc(100vh - 88px);}
+.rsh{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.rst{font-size:14px;font-weight:700;color:#0d2d4a;
+  display:flex;align-items:center;gap:8px;}
+.rst::before{content:'';width:3px;height:15px;background:#0d2d4a;border-radius:2px;}
+.dl-row{display:flex;gap:7px;flex-wrap:wrap;}
+.bld{padding:4px 11px;border-radius:5px;border:1px solid #d8dce6;
+  cursor:pointer;background:#fff;color:#5a6072;
+  font-size:10px;font-weight:600;transition:all .15s;}
+.bld:hover{background:#0d2d4a;color:#fff;border-color:#0d2d4a;}
+
+/* KPI cards */
+.kg{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px;}
+.kc{background:#f0f2f5;border:1px solid #eaecf2;border-radius:7px;padding:10px 12px;}
+.kl{font-size:9.5px;color:#5a6072;text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:3px;}
+.kv{font-size:19px;font-weight:700;color:#1a1a2e;line-height:1.2;}
+.ks{font-size:10px;color:#5a6072;margin-top:2px;}
+
+/* Charts */
+.cg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;}
+.cc{background:#fff;border:1px solid #eaecf2;border-radius:7px;padding:11px;}
+.cht{font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:#5a6072;margin-bottom:9px;display:flex;align-items:center;gap:6px;}
+.cd{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.cb{position:relative;height:200px;}
+
+/* Results table */
+.tc{background:#fff;border:1px solid #eaecf2;border-radius:7px;padding:11px;}
+.tw{overflow:auto;max-height:300px;border-radius:5px;border:1px solid #eaecf2;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead tr{background:#f0f2f5;}
+th{padding:7px 11px;text-align:left;font-size:9.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:#5a6072;border-bottom:2px solid #d8dce6;
+  white-space:nowrap;cursor:pointer;font-weight:700;}
+th:hover{color:#0d2d4a;background:#e8f0fe;}
+td{padding:6px 11px;border-bottom:1px solid #eaecf2;color:#1a1a2e;}
+tbody tr:hover td{background:#f7f8fc!important;}
+tbody tr.best td{background:#e6f4ea!important;}
+tbody tr.best td:nth-child(2){color:#1b5e20;font-weight:700;}
+.bb{display:inline-flex;padding:1px 7px;border-radius:10px;
+  background:#e6f4ea;border:1px solid #a5d6a7;color:#1e5631;
+  font-size:9px;font-weight:600;margin-left:6px;}
+.be{display:inline-flex;padding:1px 7px;border-radius:10px;
+  background:#fde8e8;border:1px solid #ef9a9a;color:#7b1f1f;font-size:9px;}
+.g{color:#1e5631;font-weight:600;}.ok{color:#6b3d09;}.bd{color:#7b1f1f;}
+.fi2{padding:5px 9px;background:#fff;border:1px solid #d8dce6;
+  border-radius:5px;color:#1a1a2e;font-size:11px;outline:none;width:160px;}
+.fi2:focus{border-color:#0d2d4a;}
+.tb{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.lg{font-size:10px;color:#5a6072;margin-top:8px;padding-top:8px;border-top:1px solid #eaecf2;}
+.lc{display:inline-block;padding:1px 7px;border-radius:3px;margin-right:5px;font-size:10px;}
+
+/* ═══════════════════════ CODE PAGE ═══════════════════════ */
+.cp{padding:16px;overflow-y:auto;height:calc(100vh - 88px);}
+.cd2{background:#fff;border:1px solid #eaecf2;border-radius:7px;padding:14px;margin-bottom:12px;}
+.ct2{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:#5a6072;margin-bottom:11px;display:flex;align-items:center;gap:7px;}
+.ct2::before{content:'';width:2px;height:10px;background:#0d2d4a;border-radius:2px;}
+.cfg{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;font-size:11px;}
+.ci-l{font-size:9px;color:#9ca3af;margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em;}
+.ci-v{font-weight:600;color:#1a1a2e;word-break:break-all;}
+.cbt{display:flex;gap:8px;margin-bottom:10px;}
+.btn-code{padding:6px 14px;border-radius:5px;border:none;cursor:pointer;
+  font-size:11px;font-weight:700;letter-spacing:.04em;transition:all .15s;}
+.btn-pr{background:linear-gradient(135deg,#0d2d4a,#1a4a6b);color:#fff;}
+.btn-se{background:#f0f2f5;color:#1a1a2e;border:1px solid #d8dce6;}
+.btn-se:hover{background:#0d2d4a;color:#fff;}
+.cpw{overflow:auto;max-height:520px;border-radius:6px;border:1px solid #eaecf2;}
+.cpw pre{padding:15px;font-family:Consolas,'Courier New',monospace;font-size:11px;
+  color:#1a1a2e;line-height:1.7;background:#f7f8fc;white-space:pre;}
+
+/* Header run/abort buttons */
+.btn-run-hdr{padding:4px 12px;border-radius:6px;cursor:pointer;
+  background:#0d2d4a;color:#fff;font-size:11px;font-weight:700;
+  border:1px solid #0d2d4a;transition:all .15s;letter-spacing:.03em;}
+.btn-run-hdr:hover:not(:disabled){background:#1a4a6b;border-color:#1a4a6b;}
+.btn-run-hdr:disabled{opacity:.4;cursor:not-allowed;}
+.btn-stop-hdr{padding:4px 10px;border-radius:6px;cursor:pointer;
+  background:#fff;color:#5a6072;font-size:11px;font-weight:600;
+  border:1px solid #d8dce6;transition:all .15s;}
+.btn-stop-hdr:hover:not(:disabled){border-color:#ef9a9a;color:#7b1f1f;background:#fde8e8;}
+.btn-stop-hdr:disabled{opacity:.35;cursor:not-allowed;}
+
+/* Right panel bottom console strip */
+.rp-bottom{flex-shrink:0;background:#fff;border-top:1px solid #eaecf2;padding:8px 13px;}
+.rp-prog{margin-bottom:6px;}
+
+/* Misc */
+.sep{width:1px;height:14px;background:#eaecf2;flex-shrink:0;}
+.fill{flex:1;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="hdr-left">
+    <div class="hdr-badge">MLRweb</div>
+    <div>
+      <div class="hdr-title">ML Workbench — Regression Platform</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-size:10px;color:rgba(255,255,255,.7);white-space:nowrap;">
+        Developed by <strong style="color:#fff;">Dr. Abidhan Bardhan</strong>
+        &nbsp;·&nbsp;
+        <span style="color:rgba(255,255,255,.55);">E-mail: abidhan@nitp.ac.in</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab on" onclick="showTab(0)"><span class="tn">1</span>Workbench</button>
+  <button class="tab"    onclick="showTab(1)"><span class="tn">2</span>Results &amp; Analysis</button>
+  <button class="tab"    onclick="showTab(2)"><span class="tn">3</span>Code Generator</button>
+</div>
+
+<!-- ══════════════ PAGE 1: WORKBENCH ══════════════ -->
+<div class="page on" id="pg0">
+  <div class="wb">
+
+    <!-- LEFT PANEL -->
+    <div class="lp">
+
+      <!-- Split mode -->
+      <div class="ls">
+        <div class="lt">Split Mode</div>
+        <div class="rg">
+          <label class="rc">
+            <input type="radio" name="spm" value="auto" checked onchange="splitMode='auto';showSplit();">
+            <div><div class="rc-t">Auto Split</div><div class="rc-d">One CSV — platform splits automatically</div></div>
+          </label>
+          <label class="rc">
+            <input type="radio" name="spm" value="manual" onchange="splitMode='manual';showSplit();">
+            <div><div class="rc-t">Manual Split</div><div class="rc-d">Separate train.csv + test.csv</div></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- AUTO upload -->
+      <div class="ls" id="auto-sec">
+        <div class="lt">Upload Dataset</div>
+        <div class="fu">
+          <label class="fu-lbl">CSV File <span style="color:#9ca3af;font-weight:400">(last column = target)</span></label>
+          <div class="fu-row">
+            <button class="fu-btn" onclick="document.getElementById('fi-main').click()">📂 Choose File</button>
+            <span class="fu-name" id="fn-main">No file chosen</span>
+          </div>
+          <input type="file" id="fi-main" accept=".csv,.tsv" onchange="onFile(event,'main')">
+          <div id="fok-main"></div>
+        </div>
+        <div class="g3" style="margin-top:4px;">
+          <div class="fg"><label class="fl">Test %</label>
+            <select class="fs" id="tsz">
+              <option value="0.10">10%</option><option value="0.15">15%</option>
+              <option value="0.20" selected>20%</option><option value="0.25">25%</option><option value="0.30">30%</option>
+            </select></div>
+          <div class="fg"><label class="fl">Seed</label><input class="fi" type="number" id="rsd" value="1" min="0" max="9999"></div>
+          <div class="fg"><label class="fl">Shuffle</label>
+            <select class="fs" id="shuf"><option value="true">Yes</option><option value="false">No</option></select></div>
+        </div>
+      </div>
+
+      <!-- MANUAL upload -->
+      <div class="ls" id="manual-sec" style="display:none;">
+        <div class="lt">Training CSV</div>
+        <div class="fu">
+          <div class="fu-row">
+            <button class="fu-btn" onclick="document.getElementById('fi-train').click()">📂 Choose Train CSV</button>
+            <span class="fu-name" id="fn-train">No file chosen</span>
+          </div>
+          <input type="file" id="fi-train" accept=".csv" onchange="onFile(event,'train')">
+          <div id="fok-train"></div>
+        </div>
+        <div class="lt" style="margin-top:10px;">Testing CSV</div>
+        <div class="fu">
+          <div class="fu-row">
+            <button class="fu-btn" onclick="document.getElementById('fi-test').click()">📂 Choose Test CSV</button>
+            <span class="fu-name" id="fn-test">No file chosen</span>
+          </div>
+          <input type="file" id="fi-test" accept=".csv" onchange="onFile(event,'test')">
+          <div id="fok-test"></div>
+        </div>
+      </div>
+
+      <!-- Scaler -->
+      <div class="ls">
+        <div class="lt">Preprocessing</div>
+        <div class="scr">
+          <div><div class="scr-t">StandardScaler</div><div class="scr-d">Recommended for SVR, KNN, MLP</div></div>
+          <label class="tgl"><input type="checkbox" id="use-sc" checked><span class="tsl"></span></label>
+        </div>
+        <!-- Progress moved here -->
+        <div style="margin-top:8px;">
+          <div class="pi" style="margin-bottom:3px;">
+            <span id="cur-m" style="color:#5a6072;font-size:10px;">—</span>
+            <span id="pct" style="color:#0d2d4a;font-weight:700;font-size:11px;">0%</span>
+          </div>
+          <div class="pb"><div class="pf" id="tprog" style="width:0%"></div></div>
+          <div class="pi"><span><span id="dn">0</span>/<span id="tn">0</span> models</span><span id="etime"></span></div>
+          <span class="em" id="emsg"></span>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div class="ls" id="prev-sec" style="display:none;">
+        <div class="lt">Data Preview</div>
+        <div id="prev-info" style="font-size:10px;color:#5a6072;margin-bottom:5px;"></div>
+        <div style="overflow:auto;max-height:140px;border:1px solid #eaecf2;border-radius:6px;">
+          <table id="prev-tbl" style="font-size:10px;"></table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL: MODEL LIST -->
+    <div class="rp">
+      <div class="rt">
+        <span class="rt-title">Models &amp; Hyperparameters</span>
+        <button class="bsm" onclick="toggleAll(true)">✓ All</button>
+        <button class="bsm" onclick="toggleAll(false)">✕ None</button>
+        <div class="sep"></div>
+        <button class="bsm" onclick="resetDef()">↺ Reset</button>
+        <div class="sep"></div>
+        <button class="btn-run-hdr" id="btn-run" onclick="runTraining()">▶ Run Training</button>
+        <button class="btn-stop-hdr" id="btn-stop" disabled onclick="aborted=true;this.disabled=true;">■ Abort</button>
+        <div class="spill ready" id="spill"><div class="sd"></div><span id="stxt">Ready</span></div>
+        <div class="fill"></div>
+        <div class="ec"><span id="ecnt">15</span> / 15 enabled</div>
+      </div>
+      <div class="ml" id="mgrid"></div>
+
+      <!-- Progress + Console at bottom of model area -->
+      <div class="rp-bottom">
+        <div class="lt" style="margin-bottom:5px;">Console</div>
+        <div class="con" id="con"><span class="li">[ready] Choose your CSV files and click Run Training.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS section removed from here — now in Tab 2 -->
+</div>
+
+<!-- ══════════════ PAGE 2: RESULTS & ANALYSIS ══════════════ -->
+<div class="page" id="pg1">
+  <div id="res-wrap" style="display:none;">
+    <div class="rs">
+      <div class="rsh">
+        <div class="rst">Results &amp; Analysis</div>
+        <div class="dl-row">
+          <button class="bld" onclick="dlRes()">⬇ Results CSV</button>
+          <button class="bld" onclick="dlPredTr()">⬇ Train Predictions</button>
+          <button class="bld" onclick="dlPredTs()">⬇ Test Predictions</button>
+          <button class="bld" id="btn-dl-split-train" onclick="dlSplitTrain()" style="display:none;">⬇ Split Train Dataset</button>
+          <button class="bld" id="btn-dl-split-test"  onclick="dlSplitTest()"  style="display:none;">⬇ Split Test Dataset</button>
+        </div>
+      </div>
+      <div class="kg" id="kpis"></div>
+      <div class="cg">
+        <div class="cc"><div class="cht"><div class="cd" style="background:#0d2d4a"></div>R² Score</div><div class="cb"><canvas id="ch-r2"></canvas></div></div>
+        <div class="cc"><div class="cht"><div class="cd" style="background:#e8a020"></div>RMSE</div><div class="cb"><canvas id="ch-rmse"></canvas></div></div>
+        <div class="cc"><div class="cht"><div class="cd" style="background:#43a047"></div>Actual vs Predicted (Best Model)</div><div class="cb"><canvas id="ch-sc"></canvas></div></div>
+        <div class="cc"><div class="cht"><div class="cd" style="background:#7e57c2"></div>MAE</div><div class="cb"><canvas id="ch-mae"></canvas></div></div>
+        <div class="cc"><div class="cht"><div class="cd" style="background:#e53935"></div>Overfitting Gap (R² Train − Test)</div><div class="cb"><canvas id="ch-gap"></canvas></div></div>
+        <div class="cc"><div class="cht"><div class="cd" style="background:#5a6072"></div>Training Time (s)</div><div class="cb"><canvas id="ch-tm"></canvas></div></div>
+      </div>
+      <div class="tc">
+        <div class="tb">
+          <span style="font-size:12px;font-weight:700;color:#1a1a2e;">Performance Table</span>
+          <span style="font-size:10px;color:#5a6072;">Click headers to sort</span>
+          <div class="fill"></div>
+          <input class="fi2" type="text" placeholder="Filter model…" oninput="filterTbl(this.value)">
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th onclick="srt('r')">Rank</th>
+              <th onclick="srt('k')">Model</th>
+              <th onclick="srt('n')">Name</th>
+              <th onclick="srt('r2tr')">R² Train</th>
+              <th onclick="srt('r2ts')">R² Test</th>
+              <th onclick="srt('rmtr')">RMSE Train</th>
+              <th onclick="srt('rmts')">RMSE Test</th>
+              <th onclick="srt('matr')">MAE Train</th>
+              <th onclick="srt('mats')">MAE Test</th>
+              <th onclick="srt('t')">Time (s)</th>
+            </tr></thead>
+            <tbody id="rtbody"></tbody>
+          </table>
+        </div>
+        <div class="lg">
+          ★ Best model &nbsp;|&nbsp;
+          <span class="lc" style="background:#C8E6C9;color:#1B5E20">R²≥0.99</span>
+          <span class="lc" style="background:#DCEDC8;color:#33691E">0.97–0.99</span>
+          <span class="lc" style="background:#F9FBE7;color:#558B2F">0.95–0.97</span>
+          <span class="lc" style="background:#FFF9C4;color:#F57F17">0.90–0.95</span>
+          <span class="lc" style="background:#FFE0B2;color:#E65100">&lt;0.90</span>
+          <span class="lc" style="background:#FFCDD2;color:#B71C1C">Negative</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Placeholder when no results yet -->
+  <div id="no-results-msg" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:calc(100vh - 88px);color:#9ca3af;">
+    <div style="font-size:48px;margin-bottom:16px;">📊</div>
+    <div style="font-size:14px;font-weight:600;color:#5a6072;margin-bottom:6px;">No results yet</div>
+    <div style="font-size:12px;">Go to Workbench, load your data and click ▶ Run Training</div>
+  </div>
+</div>
+
+<!-- ══════════════ PAGE 3: CODE GENERATOR ══════════════ -->
+<div class="page" id="pg2">
+  <div class="cp">
+    <div class="cd2">
+      <div class="ct2">Configuration Summary</div>
+      <div class="cfg" id="cfg-sum"></div>
+    </div>
+    <div class="cd2">
+      <div class="ct2">Generated Colab / Jupyter Code</div>
+      <div class="cbt">
+        <button class="btn-code btn-pr" onclick="refreshCode()">↺ Refresh</button>
+        <button class="btn-code btn-se" id="cpbtn" onclick="copyCode()">⧉ Copy</button>
+        <button class="btn-code btn-se" onclick="dlCode()">⬇ Download .py</button>
+      </div>
+      <div class="cpw"><pre id="codepre"></pre></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let splitMode = 'auto';
+let aborted   = false;
+let csv       = { main:null, train:null, test:null };
+let results   = [];
+let preds     = { train:{}, test:{}, Ytr:[], Yts:[] };
+let splitCSV  = { headers:[], Xtr:[], Ytr:[], Xts:[], Yts:[] };
+let charts    = {};
+let sortDir   = {};
+
+const $ = id => document.getElementById(id);
+
+/* ══════════════════════════════════════════
+   TABS
+══════════════════════════════════════════ */
+function showTab(i) {
+  document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('on', i===j));
+  document.querySelectorAll('.page').forEach((p,j) => p.classList.toggle('on', i===j));
+  if (i===2) refreshCode();
+}
+
+/* ══════════════════════════════════════════
+   SPLIT MODE
+══════════════════════════════════════════ */
+function showSplit() {
+  $('auto-sec').style.display   = splitMode==='auto'   ? '' : 'none';
+  $('manual-sec').style.display = splitMode==='manual' ? '' : 'none';
+}
+
+/* ══════════════════════════════════════════
+   FILE UPLOAD — plain reliable approach
+══════════════════════════════════════════ */
+function onFile(e, key) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const txt = ev.target.result;
+    csv[key] = txt;
+    // Parse to check validity
+    const parsed = parseCSV(txt);
+    const fn = $('fn-'+key);
+    const fok = $('fok-'+key);
+    if (fn) fn.textContent = file.name;
+    if (parsed.X.length === 0) {
+      if (fok) fok.innerHTML = '<span style="color:#e53935;font-size:10px;">⚠ No valid rows found</span>';
+      clog('⚠ Could not parse ' + file.name + ' — check it is a numeric CSV', 'lw');
+      return;
+    }
+    const info = `${parsed.X.length} rows × ${parsed.X[0].length} features | Target: ${parsed.headers[parsed.headers.length-1]}`;
+    if (fok) fok.innerHTML = `<span class="fu-ok" style="margin-top:5px;display:inline-block">✓ ${info}</span>`;
+    clog('Loaded: ' + file.name + ' — ' + info, 'lok');
+    if (key==='main' || key==='train') renderPreview(parsed);
+  };
+  reader.readAsText(file);
+}
+
+/* ══════════════════════════════════════════
+   PARSE CSV
+══════════════════════════════════════════ */
+function parseCSV(txt) {
+  // Strip BOM, normalise line endings
+  txt = txt.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = txt.trim().split('\n').filter(l => l.trim() !== '');
+  if (lines.length < 2) return { X:[], y:[], headers:[] };
+  const headers = lines[0].split(',').map(h => h.trim());
+  const d = headers.length;
+  const X = [], y = [];
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(',');
+    if (parts.length !== d) continue;
+    const row = parts.map(p => parseFloat(p.trim()));
+    if (row.some(v => isNaN(v))) continue;
+    X.push(row.slice(0, -1));
+    y.push(row[row.length - 1]);
+  }
+  return { X, y, headers };
+}
+
+/* ══════════════════════════════════════════
+   DATA PREVIEW
+══════════════════════════════════════════ */
+function renderPreview(p) {
+  const sec = $('prev-sec');
+  if (!sec) return;
+  sec.style.display = '';
+  $('prev-info').textContent = `${p.X.length} rows × ${p.X[0].length} features · Target: ${p.headers[p.headers.length-1]}`;
+  const tbl = $('prev-tbl');
+  let h = '<thead><tr>' + p.headers.map(c=>`<th style="padding:4px 8px;background:#f0f2f5;color:#5a6072;font-size:9px;border-bottom:1px solid #eaecf2;white-space:nowrap">${c}</th>`).join('') + '</tr></thead><tbody>';
+  for (let i=0; i<Math.min(6,p.X.length); i++) {
+    h += '<tr>' + [...p.X[i], p.y[i]].map(v=>`<td style="padding:3px 8px;border-bottom:1px solid #f0f2f5;font-size:10px">${v}</td>`).join('') + '</tr>';
+  }
+  tbl.innerHTML = h + '</tbody>';
+}
+
+/* ══════════════════════════════════════════
+   CONSOLE
+══════════════════════════════════════════ */
+function clog(msg, cls='ll') {
+  const c = $('con');
+  const d = document.createElement('div');
+  const ts = new Date().toLocaleTimeString('en',{hour12:false});
+  d.className = cls;
+  d.textContent = `[${ts}] ${msg}`;
+  c.appendChild(d);
+  c.scrollTop = c.scrollHeight;
+}
+
+/* ══════════════════════════════════════════
+   STATUS PILL
+══════════════════════════════════════════ */
+function setStatus(s) {
+  const p=$('spill'), t=$('stxt');
+  p.className = 'spill '+s;
+  t.textContent = {ready:'Ready',training:'Training',error:'Error'}[s]||s;
+}
+
+/* ══════════════════════════════════════════
+   MATH UTILITIES
+══════════════════════════════════════════ */
+const mean = a => a.reduce((s,v)=>s+v,0)/a.length;
+const mse  = a => { const m=mean(a); return a.reduce((s,v)=>s+(v-m)**2,0)/a.length; };
+
+function dot(a,b){ let s=0; for(let i=0;i<a.length;i++) s+=a[i]*b[i]; return s; }
+
+// Solve (A + eps*I)x = b via Cholesky — A is flat row-major n×n
+function cholSolve(A, n, b) {
+  const M = A.slice();
+  for (let i=0;i<n;i++) M[i*n+i] += 1e-9;
+  const L = new Float64Array(n*n);
+  for (let i=0;i<n;i++) {
+    for (let j=0;j<=i;j++) {
+      let s = M[i*n+j];
+      for (let k=0;k<j;k++) s -= L[i*n+k]*L[j*n+k];
+      L[i*n+j] = j===i ? Math.sqrt(Math.max(s,1e-15)) : s/L[j*n+j];
+    }
+  }
+  const y = new Float64Array(n);
+  for (let i=0;i<n;i++){let s=b[i]; for(let k=0;k<i;k++) s-=L[i*n+k]*y[k]; y[i]=s/L[i*n+i];}
+  const x = new Float64Array(n);
+  for (let i=n-1;i>=0;i--){let s=y[i]; for(let k=i+1;k<n;k++) s-=L[k*n+i]*x[k]; x[i]=s/L[i*n+i];}
+  return x;
+}
+
+// (n×m) x (m×p) matrix multiply — flat arrays
+function matMul(A,n,m,B,p) {
+  const C = new Float64Array(n*p);
+  for(let i=0;i<n;i++) for(let k=0;k<m;k++){
+    const aik=A[i*m+k];
+    for(let j=0;j<p;j++) C[i*p+j]+=aik*B[k*p+j];
+  }
+  return C;
+}
+function Tv(A,n,m,b) { // A^T * b
+  const c=new Float64Array(m);
+  for(let i=0;i<n;i++) for(let j=0;j<m;j++) c[j]+=A[i*m+j]*b[i];
+  return c;
+}
+function Tm(A,n,m) { // transpose
+  const T=new Float64Array(m*n);
+  for(let i=0;i<n;i++) for(let j=0;j<m;j++) T[j*n+i]=A[i*m+j];
+  return T;
+}
+
+/* ══════════════════════════════════════════
+   METRICS
+══════════════════════════════════════════ */
+function r2(y,p){ const ym=mean(y),ss=y.reduce((s,v)=>s+(v-ym)**2,0),sr=y.reduce((s,v,i)=>s+(v-p[i])**2,0); return ss<1e-15?0:1-sr/ss; }
+function rmse(y,p){ return Math.sqrt(y.reduce((s,v,i)=>s+(v-p[i])**2,0)/y.length); }
+function mae(y,p){ return y.reduce((s,v,i)=>s+Math.abs(v-p[i]),0)/y.length; }
+
+/* ══════════════════════════════════════════
+   SCALER
+══════════════════════════════════════════ */
+class Scaler {
+  fit(X) {
+    const d=X[0].length;
+    this.mu = Array.from({length:d},(_,j)=>mean(X.map(r=>r[j])));
+    this.sd = Array.from({length:d},(_,j)=>{const m=this.mu[j];return Math.sqrt(X.reduce((s,r)=>s+(r[j]-m)**2,0)/X.length)||1;});
+    return this;
+  }
+  tr(X){ return X.map(r=>r.map((v,j)=>(v-this.mu[j])/this.sd[j])); }
+  fit_tr(X){ return this.fit(X).tr(X); }
+}
+
+/* ══════════════════════════════════════════
+   TRAIN / TEST SPLIT
+══════════════════════════════════════════ */
+function splitData(X, y, frac, seed) {
+  let s=seed>>>0||1;
+  const rng=()=>{s=Math.imul(s^s>>>15,1|s);s^=s+Math.imul(s^s>>>7,61|s);return((s^s>>>14)>>>0)/4294967296;};
+  const n=X.length, idx=Array.from({length:n},(_,i)=>i).sort(()=>rng()-.5);
+  const nts=Math.max(1,Math.round(n*frac));
+  return{Xtr:idx.slice(nts).map(i=>X[i]),Ytr:idx.slice(nts).map(i=>y[i]),
+         Xts:idx.slice(0,nts).map(i=>X[i]),Yts:idx.slice(0,nts).map(i=>y[i])};
+}
+
+/* ══════════════════════════════════════════
+   ML MODELS — ALL 15
+══════════════════════════════════════════ */
+
+/* 1 — Linear Regression */
+class LR {
+  fit(X,y){
+    const n=X.length,d=X[0].length;
+    const Xb=X.map(r=>[1,...r]);
+    const Xt=Tm(Xb.flat(),n,d+1);
+    const XtX=matMul(Xt,d+1,n,new Float64Array(Xb.flat()),d+1);
+    this.w=cholSolve(XtX,d+1,Tv(new Float64Array(Xb.flat()),n,d+1,y));
+    return this;
+  }
+  predict(X){return X.map(r=>this.w[0]+dot(r,Array.from(this.w).slice(1)));}
+}
+
+/* 2 — Ridge */
+class Ridge {
+  constructor(a=1.0){this.a=a;}
+  fit(X,y){
+    const n=X.length,d=X[0].length;
+    const Xb=X.map(r=>[1,...r]);
+    const Xt=Tm(Xb.flat(),n,d+1);
+    const XtX=matMul(Xt,d+1,n,new Float64Array(Xb.flat()),d+1);
+    for(let i=1;i<=d;i++) XtX[i*(d+1)+i]+=this.a;
+    this.w=cholSolve(XtX,d+1,Tv(new Float64Array(Xb.flat()),n,d+1,y));
+    return this;
+  }
+  predict(X){return X.map(r=>this.w[0]+dot(r,Array.from(this.w).slice(1)));}
+}
+
+/* 3 — Lasso (coordinate descent) */
+class Lasso {
+  constructor(a=0.001,mi=1000){this.a=a;this.mi=mi;}
+  fit(X,y){
+    const n=X.length,d=X[0].length;
+    const ym=mean(y),yc=y.map(v=>v-ym);
+    const Xm=Array.from({length:d},(_,j)=>mean(X.map(r=>r[j])));
+    const Xc=X.map(r=>r.map((v,j)=>v-Xm[j]));
+    const nm=Array.from({length:d},(_,j)=>Xc.reduce((s,r)=>s+r[j]**2,0));
+    const b=new Array(d).fill(0),res=[...yc],thr=this.a*n;
+    for(let it=0;it<this.mi;it++){
+      let md=0;
+      for(let j=0;j<d;j++){
+        const ob=b[j];
+        if(ob) for(let i=0;i<n;i++) res[i]+=Xc[i][j]*ob;
+        let rho=0; for(let i=0;i<n;i++) rho+=Xc[i][j]*res[i];
+        b[j]=rho>thr?(rho-thr)/nm[j]:rho<-thr?(rho+thr)/nm[j]:0;
+        if(b[j]) for(let i=0;i<n;i++) res[i]-=Xc[i][j]*b[j];
+        md=Math.max(md,Math.abs(b[j]-ob));
+      }
+      if(md<1e-6) break;
+    }
+    this.beta=b; this.b0=ym-Xm.reduce((s,m,j)=>s+m*b[j],0);
+    return this;
+  }
+  predict(X){return X.map(r=>this.b0+dot(r,this.beta));}
+}
+
+/* 4 — ElasticNet */
+class EN {
+  constructor(a=0.001,l=0.5,mi=1000){this.a=a;this.l=l;this.mi=mi;}
+  fit(X,y){
+    const n=X.length,d=X[0].length;
+    const ym=mean(y),yc=y.map(v=>v-ym);
+    const Xm=Array.from({length:d},(_,j)=>mean(X.map(r=>r[j])));
+    const Xc=X.map(r=>r.map((v,j)=>v-Xm[j]));
+    const nm=Array.from({length:d},(_,j)=>Xc.reduce((s,r)=>s+r[j]**2,0)+this.a*(1-this.l)*n);
+    const b=new Array(d).fill(0),res=[...yc],thr=this.a*this.l*n;
+    for(let it=0;it<this.mi;it++){
+      let md=0;
+      for(let j=0;j<d;j++){
+        const ob=b[j];
+        if(ob) for(let i=0;i<n;i++) res[i]+=Xc[i][j]*ob;
+        let rho=0; for(let i=0;i<n;i++) rho+=Xc[i][j]*res[i];
+        b[j]=rho>thr?(rho-thr)/nm[j]:rho<-thr?(rho+thr)/nm[j]:0;
+        if(b[j]) for(let i=0;i<n;i++) res[i]-=Xc[i][j]*b[j];
+        md=Math.max(md,Math.abs(b[j]-ob));
+      }
+      if(md<1e-6) break;
+    }
+    this.beta=b; this.b0=ym-Xm.reduce((s,m,j)=>s+m*b[j],0);
+    return this;
+  }
+  predict(X){return X.map(r=>this.b0+dot(r,this.beta));}
+}
+
+/* 5 — Decision Tree (CART, optimised sorted-cumsums) */
+class DTR {
+  constructor(md=4,msl=1,mss=2,rs=false,seed=1){
+    this.md=md;this.msl=Math.max(1,msl);this.mss=Math.max(2,mss);
+    this.rs=rs;let s=seed>>>0||1;
+    this.rng=()=>{s=Math.imul(s^s>>>15,1|s);s^=s+Math.imul(s^s>>>7,61|s);return((s^s>>>14)>>>0)/4294967296;};
+  }
+  fit(X,y){this.tree=this._build(X,y,0);return this;}
+  predict(X){return X.map(r=>this._pred(r,this.tree));}
+  _build(X,y,d){
+    const n=y.length,vm=mean(y);
+    if(d>=this.md||n<this.mss) return {v:vm};
+    const {f,t,g}=this._best(X,y);
+    if(g<1e-12) return {v:vm};
+    const XL=[],yL=[],XR=[],yR=[];
+    for(let i=0;i<n;i++) X[i][f]<=t?(XL.push(X[i]),yL.push(y[i])):(XR.push(X[i]),yR.push(y[i]));
+    if(yL.length<this.msl||yR.length<this.msl) return {v:vm};
+    return {f,t,L:this._build(XL,yL,d+1),R:this._build(XR,yR,d+1)};
+  }
+  _best(X,y){
+    const n=y.length,d=X[0].length,yv=mse(y);
+    const tS=y.reduce((a,b)=>a+b,0),tS2=y.reduce((s,v)=>s+v*v,0);
+    let bf=0,bt=0,bg=-1;
+    for(let j=0;j<d;j++){
+      if(this.rs){
+        let mn=X[0][j],mx=X[0][j];
+        for(let i=1;i<n;i++){const v=X[i][j];if(v<mn)mn=v;if(v>mx)mx=v;}
+        if(mn>=mx-1e-12) continue;
+        const t=mn+this.rng()*(mx-mn);
+        let lS=0,lS2=0,lN=0;
+        for(let i=0;i<n;i++) if(X[i][j]<=t){lS+=y[i];lS2+=y[i]*y[i];lN++;}
+        const rN=n-lN;
+        if(lN<this.msl||rN<this.msl) continue;
+        const lv=lS2/lN-(lS/lN)**2,rv=(tS2-lS2)/rN-((tS-lS)/rN)**2;
+        const g=yv-(lN/n)*lv-(rN/n)*rv;
+        if(g>bg){bg=g;bf=j;bt=t;}
+      } else {
+        const ord=new Int32Array(n);
+        for(let i=0;i<n;i++) ord[i]=i;
+        ord.sort((a,b)=>X[a][j]-X[b][j]);
+        let lS=0,lS2=0;
+        for(let k=0;k<n-1;k++){
+          const i=ord[k];lS+=y[i];lS2+=y[i]*y[i];
+          const lN=k+1,rN=n-k-1;
+          if(lN<this.msl||rN<this.msl) continue;
+          if(X[ord[k]][j]>=X[ord[k+1]][j]-1e-10) continue;
+          const lv=lS2/lN-(lS/lN)**2,rv=(tS2-lS2)/rN-((tS-lS)/rN)**2;
+          const g=yv-(lN/n)*lv-(rN/n)*rv;
+          if(g>bg){bg=g;bf=j;bt=(X[ord[k]][j]+X[ord[k+1]][j])*.5;}
+        }
+      }
+    }
+    return {f:bf,t:bt,g:bg};
+  }
+  _pred(r,nd){return 'v' in nd?nd.v:r[nd.f]<=nd.t?this._pred(r,nd.L):this._pred(r,nd.R);}
+}
+
+/* 6 — Random Forest */
+class RFR {
+  constructor(ne=45,md=4,msl=1,seed=1){this.ne=ne;this.md=md;this.msl=msl;this.seed=seed;}
+  fit(X,y){
+    const n=X.length;let s=this.seed>>>0||1;
+    const rng=()=>{s=Math.imul(s^s>>>15,1|s);s^=s+Math.imul(s^s>>>7,61|s);return((s^s>>>14)>>>0)/4294967296;};
+    this.trees=Array.from({length:this.ne},(_,t)=>{
+      const idx=Array.from({length:n},()=>Math.floor(rng()*n));
+      return new DTR(this.md,this.msl,2,false,this.seed+t).fit(idx.map(i=>X[i]),idx.map(i=>y[i]));
+    });
+    return this;
+  }
+  predict(X){const ps=this.trees.map(t=>t.predict(X));return X.map((_,i)=>ps.reduce((s,p)=>s+p[i],0)/this.ne);}
+}
+
+/* 7 — Extra Trees */
+class ETR {
+  constructor(ne=45,md=4,msl=1,seed=1){this.ne=ne;this.md=md;this.msl=msl;this.seed=seed;}
+  fit(X,y){
+    const n=X.length;let s=this.seed>>>0||1;
+    const rng=()=>{s=Math.imul(s^s>>>15,1|s);s^=s+Math.imul(s^s>>>7,61|s);return((s^s>>>14)>>>0)/4294967296;};
+    this.trees=Array.from({length:this.ne},(_,t)=>{
+      const idx=Array.from({length:n},()=>Math.floor(rng()*n));
+      return new DTR(this.md,this.msl,2,true,this.seed+t).fit(idx.map(i=>X[i]),idx.map(i=>y[i]));
+    });
+    return this;
+  }
+  predict(X){const ps=this.trees.map(t=>t.predict(X));return X.map((_,i)=>ps.reduce((s,p)=>s+p[i],0)/this.ne);}
+}
+
+/* 8 — Bagging */
+class BGR {
+  constructor(ne=45,ms=1.0,mf=1.0,seed=1){this.ne=ne;this.ms=ms;this.mf=mf;this.seed=seed;}
+  fit(X,y){
+    const n=X.length,d=X[0].length;
+    const nS=Math.max(1,Math.round(n*this.ms)),nF=Math.max(1,Math.round(d*this.mf));
+    let s=this.seed>>>0||1;
+    const rng=()=>{s=Math.imul(s^s>>>15,1|s);s^=s+Math.imul(s^s>>>7,61|s);return((s^s>>>14)>>>0)/4294967296;};
+    this.trees=[];this.fi=[];
+    for(let t=0;t<this.ne;t++){
+      const idx=Array.from({length:nS},()=>Math.floor(rng()*n));
+      const fi=Array.from({length:d},(_,i)=>i).sort(()=>rng()-.5).slice(0,nF);
+      this.fi.push(fi);
+      this.trees.push(new DTR(4,1,2,false,this.seed+t).fit(idx.map(i=>fi.map(f=>X[i][f])),idx.map(i=>y[i])));
+    }
+    return this;
+  }
+  predict(X){const ps=this.trees.map((t,k)=>t.predict(X.map(r=>this.fi[k].map(f=>r[f]))));return X.map((_,i)=>ps.reduce((s,p)=>s+p[i],0)/this.ne);}
+}
+
+/* 9 — AdaBoost R2 */
+class ABR {
+  constructor(ne=45,lr=0.35,loss='exponential',seed=1){this.ne=ne;this.lr=lr;this.loss=loss;this.seed=seed;}
+  fit(X,y){
+    const n=X.length;let s=this.seed>>>0||1;
+    const rng=()=>{s=Math.imul(s^s>>>15,1|s);s^=s+Math.imul(s^s>>>7,61|s);return((s^s>>>14)>>>0)/4294967296;};
+    this.ests=[];this.wts=[];
+    let w=new Array(n).fill(1/n);
+    for(let t=0;t<this.ne;t++){
+      const cdf=[];let c=0;for(const v of w){c+=v;cdf.push(c);}
+      const idx=Array.from({length:n},()=>{let u=rng(),lo=0,hi=n-1;while(lo<hi){const m=(lo+hi)>>1;cdf[m]<u?lo=m+1:hi=m;}return lo;});
+      const m=new DTR(1,1,2,false,this.seed+t).fit(idx.map(i=>X[i]),idx.map(i=>y[i]));
+      const p=m.predict(X);
+      const maxE=Math.max(...p.map((v,i)=>Math.abs(v-y[i])));
+      if(maxE<1e-10){this.ests.push(m);this.wts.push(1);break;}
+      const err=p.map((v,i)=>{const e=Math.abs(v-y[i])/maxE;return this.loss==='linear'?e:this.loss==='square'?e*e:1-Math.exp(-e);});
+      const wE=err.reduce((s,e,i)=>s+w[i]*e,0);
+      if(wE>=0.5) break;
+      const beta=wE/(1-wE+1e-10);
+      this.ests.push(m);this.wts.push(this.lr*Math.log(1/(beta+1e-10)));
+      w=w.map((v,i)=>v*Math.pow(beta,1-err[i]));
+      const ws=w.reduce((a,b)=>a+b,0);w=w.map(v=>v/ws);
+    }
+    return this;
+  }
+  predict(X){
+    if(!this.ests.length) return new Array(X.length).fill(0);
+    const tw=this.wts.reduce((a,b)=>a+b,0)||1;
+    const ps=this.ests.map((m,k)=>m.predict(X).map(v=>v*this.wts[k]));
+    return X.map((_,i)=>ps.reduce((s,p)=>s+p[i],0)/tw);
+  }
+}
+
+/* 10 — Gradient Boosting */
+class GBR {
+  constructor(ne=45,lr=0.35,md=4,sub=1.0,seed=1){this.ne=ne;this.lr=lr;this.md=md;this.sub=sub;this.seed=seed;}
+  fit(X,y){
+    const n=X.length;let s=this.seed>>>0||1;
+    const rng=()=>{s=Math.imul(s^s>>>15,1|s);s^=s+Math.imul(s^s>>>7,61|s);return((s^s>>>14)>>>0)/4294967296;};
+    this.f0=mean(y);this.trees=[];
+    let F=new Array(n).fill(this.f0);
+    for(let t=0;t<this.ne;t++){
+      const res=y.map((v,i)=>v-F[i]);
+      const nS=Math.max(1,Math.round(n*this.sub));
+      const idx=this.sub<1?Array.from({length:nS},()=>Math.floor(rng()*n)):Array.from({length:n},(_,i)=>i);
+      const m=new DTR(this.md,1,2,false,this.seed+t).fit(idx.map(i=>X[i]),idx.map(i=>res[i]));
+      const u=m.predict(X);
+      F=F.map((v,i)=>v+this.lr*u[i]);
+      this.trees.push(m);
+    }
+    return this;
+  }
+  predict(X){let F=new Array(X.length).fill(this.f0);for(const m of this.trees){const u=m.predict(X);F=F.map((v,i)=>v+this.lr*u[i]);}return F;}
+}
+
+/* 11 — Hist Gradient Boosting */
+class HGBR {
+  constructor(lr=0.1,md=4,mi=100,msl=20,seed=1){this.lr=lr;this.md=md;this.mi=mi;this.msl=msl;this.seed=seed;}
+  fit(X,y){
+    this.f0=mean(y);this.trees=[];
+    let F=new Array(X.length).fill(this.f0);
+    for(let t=0;t<this.mi;t++){
+      const res=y.map((v,i)=>v-F[i]);
+      const m=new DTR(this.md,this.msl,2,false,this.seed+t).fit(X,res);
+      const u=m.predict(X);F=F.map((v,i)=>v+this.lr*u[i]);
+      this.trees.push(m);
+    }
+    return this;
+  }
+  predict(X){let F=new Array(X.length).fill(this.f0);for(const m of this.trees){const u=m.predict(X);F=F.map((v,i)=>v+this.lr*u[i]);}return F;}
+}
+
+/* 12 — SVR (Random Fourier Features → Ridge) */
+class SVR {
+  constructor(k='rbf',C=10000,eps=10,deg=4,seed=1){this.k=k;this.C=C;this.eps=eps;this.deg=deg;this.seed=seed;}
+  fit(X,y){
+    const n=X.length,d=X[0].length,a=Math.max(1e-6,1/this.C);
+    let s=this.seed>>>0||1;
+    const rng=()=>{s=Math.imul(s^s>>>15,1|s);s^=s+Math.imul(s^s>>>7,61|s);return((s^s>>>14)>>>0)/4294967296;};
+    const rn=()=>{const u=rng()||1e-15,v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+    if(this.k==='rbf'){
+      const flat=X.flat(),vm=mean(flat),vv=mean(flat.map(v=>(v-vm)**2))||1;
+      const gm=1/(d*vv),D=Math.min(200,n*2);
+      this._om=Array.from({length:D},()=>Array.from({length:d},()=>rn()*Math.sqrt(2*gm)));
+      this._bv=Array.from({length:D},()=>rng()*2*Math.PI);
+      this._m=new Ridge(a).fit(this._rff(X),y);
+    } else if(this.k==='poly'){
+      this._m=new Ridge(a).fit(this._poly(X),y);
+    } else {
+      this._m=new Ridge(a).fit(X,y);
+    }
+    return this;
+  }
+  _rff(X){const D=this._om.length;return X.map(r=>Array.from({length:D},(_,k)=>Math.sqrt(2/D)*Math.cos(dot(r,this._om[k])+this._bv[k])));}
+  _poly(X){const d=X[0].length;return X.map(r=>{const o=[...r];for(let i=0;i<d;i++)for(let j=i;j<d;j++)o.push(r[i]*r[j]);return o;});}
+  predict(X){return this.k==='rbf'?this._m.predict(this._rff(X)):this.k==='poly'?this._m.predict(this._poly(X)):this._m.predict(X);}
+}
+
+/* 13 — KNN */
+class KNN {
+  constructor(k=5,wt='uniform',p=2){this.k=k;this.wt=wt;this.p=p;}
+  fit(X,y){this.Xtr=X;this.ytr=y;return this;}
+  predict(X){
+    return X.map(r=>{
+      const ds=this.Xtr.map((xr,i)=>({d:Math.pow(xr.reduce((s,v,j)=>s+Math.pow(Math.abs(v-r[j]),this.p),0),1/this.p),i}))
+        .sort((a,b)=>a.d-b.d).slice(0,this.k);
+      if(this.wt==='uniform') return mean(ds.map(({i})=>this.ytr[i]));
+      const ws=ds.map(({d})=>1/Math.max(d,1e-10)),ws_sum=ws.reduce((a,b)=>a+b,0);
+      return ds.reduce((s,{i},k)=>s+ws[k]*this.ytr[i],0)/ws_sum;
+    });
+  }
+}
+
+/* 14 — XGBoost style */
+class XGB {
+  constructor(ne=45,md=4,lr=0.35,a=0.2,sub=1.0,cbt=1.0,seed=1){this.ne=ne;this.md=md;this.lr=lr;this.a=a;this.sub=sub;this.cbt=cbt;this.seed=seed;}
+  fit(X,y){
+    const n=X.length,d=X[0].length;
+    let s=this.seed>>>0||1;
+    const rng=()=>{s=Math.imul(s^s>>>15,1|s);s^=s+Math.imul(s^s>>>7,61|s);return((s^s>>>14)>>>0)/4294967296;};
+    this.f0=mean(y);this.trees=[];
+    let F=new Array(n).fill(this.f0);
+    for(let t=0;t<this.ne;t++){
+      const res=y.map((v,i)=>v-F[i]);
+      const nS=Math.max(1,Math.round(n*this.sub));
+      const ri=this.sub<1?Array.from({length:nS},()=>Math.floor(rng()*n)):Array.from({length:n},(_,i)=>i);
+      const nF=Math.max(1,Math.round(d*this.cbt));
+      const ci=Array.from({length:d},(_,i)=>i).sort(()=>rng()-.5).slice(0,nF);
+      const m=new DTR(this.md,1,2,false,this.seed+t).fit(ri.map(i=>ci.map(f=>X[i][f])),ri.map(i=>res[i]));
+      this.trees.push({m,ci});
+      const u=X.map(r=>m._pred(ci.map(f=>r[f]),m.tree));
+      F=F.map((v,i)=>v+this.lr*u[i]);
+    }
+    return this;
+  }
+  predict(X){let F=new Array(X.length).fill(this.f0);for(const{m,ci}of this.trees){const u=X.map(r=>m._pred(ci.map(f=>r[f]),m.tree));F=F.map((v,i)=>v+this.lr*u[i]);}return F;}
+}
+
+/* 15 — MLP (Adam backprop) */
+class MLP {
+  constructor(hl=[100,50],act='relu',a=0.0001,mi=300,seed=1){this.hl=Array.isArray(hl)?hl:[hl];this.act=act;this.a=a;this.mi=Math.min(mi,300);this.seed=seed;}
+  _af(){return this.act==='relu'?v=>Math.max(0,v):this.act==='tanh'?v=>Math.tanh(v):this.act==='logistic'?v=>1/(1+Math.exp(-v)):v=>v;}
+  _df(){return this.act==='relu'?v=>v>0?1:0:this.act==='tanh'?v=>1-Math.tanh(v)**2:this.act==='logistic'?v=>{const s=1/(1+Math.exp(-v));return s*(1-s);}:()=>1;}
+  fit(X,y){
+    const n=X.length,dIn=X[0].length;
+    const szs=[dIn,...this.hl,1],L=szs.length-1;
+    let s=this.seed>>>0||1;
+    const rng=()=>{s=Math.imul(s^s>>>15,1|s);s^=s+Math.imul(s^s>>>7,61|s);return((s^s>>>14)>>>0)/4294967296;};
+    const rn=()=>{const u=rng()||1e-15,v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+    this.ym=mean(y);const yc=y.map(v=>v-this.ym);
+    this.ys=Math.sqrt(mean(yc.map(v=>v*v)))||1;
+    const yn=yc.map(v=>v/this.ys);
+    this.W=[];this.b=[];
+    for(let l=0;l<L;l++){
+      const sc=Math.sqrt(2/szs[l]);
+      this.W.push(Array.from({length:szs[l+1]},()=>Array.from({length:szs[l]},()=>rn()*sc)));
+      this.b.push(new Array(szs[l+1]).fill(0));
+    }
+    const mW=this.W.map(w=>w.map(r=>new Array(r.length).fill(0)));
+    const vW=this.W.map(w=>w.map(r=>new Array(r.length).fill(0)));
+    const mb=this.b.map(b=>new Array(b.length).fill(0));
+    const vb=this.b.map(b=>new Array(b.length).fill(0));
+    const lr=0.001,b1=0.9,b2=0.999,ep=1e-8,bsz=Math.min(32,n);
+    const af=this._af(),df=this._df();
+    for(let t=1;t<=this.mi;t++){
+      const idx=Array.from({length:bsz},()=>Math.floor(rng()*n));
+      const Xb=idx.map(i=>X[i]),yb=idx.map(i=>yn[i]);
+      const Z=[Xb],Zp=[];
+      for(let l=0;l<L;l++){
+        const isL=l===L-1;
+        const zp=Z[l].map(r=>this.W[l].map((w,k)=>w.reduce((s,v,j)=>s+v*r[j],0)+this.b[l][k]));
+        Zp.push(zp);Z.push(zp.map(r=>r.map(v=>isL?v:af(v))));
+      }
+      const g=new Array(L);
+      g[L-1]=Z[L].map((r,i)=>[(2/bsz)*(r[0]-yb[i])]);
+      for(let l=L-1;l>=0;l--){
+        const dW=this.W[l].map((w,k)=>w.map((_,j)=>g[l].reduce((s,gi,i)=>s+gi[k]*Z[l][i][j],0)+this.a*w[j]));
+        const db=this.b[l].map((_,k)=>g[l].reduce((s,gi)=>s+gi[k],0));
+        if(l>0) g[l-1]=Zp[l-1].map((zp_row,i)=>zp_row.map((zpv,j)=>df(zpv)*this.W[l].reduce((s,w,k)=>s+w[j]*g[l][i][k],0)));
+        this.W[l]=this.W[l].map((w,k)=>w.map((v,j)=>{mW[l][k][j]=b1*mW[l][k][j]+(1-b1)*dW[k][j];vW[l][k][j]=b2*vW[l][k][j]+(1-b2)*dW[k][j]**2;return v-lr*(mW[l][k][j]/(1-b1**t))/(Math.sqrt(vW[l][k][j]/(1-b2**t))+ep);}));
+        this.b[l]=this.b[l].map((v,k)=>{mb[l][k]=b1*mb[l][k]+(1-b1)*db[k];vb[l][k]=b2*vb[l][k]+(1-b2)*db[k]**2;return v-lr*(mb[l][k]/(1-b1**t))/(Math.sqrt(vb[l][k]/(1-b2**t))+ep);});
+      }
+    }
+    return this;
+  }
+  predict(X){const af=this._af();return X.map(r=>{let a=[...r];for(let l=0;l<this.W.length;l++){const isL=l===this.W.length-1;a=this.W[l].map((w,k)=>{const z=w.reduce((s,v,j)=>s+v*a[j],0)+this.b[l][k];return isL?z:af(z);});}return a[0]*this.ys+this.ym;});}
+}
+
+/* ══════════════════════════════════════════
+   MODEL DEFINITIONS
+══════════════════════════════════════════ */
+const MDEFS = [
+  {key:'LR',   name:'Linear Regression',    cat:'cln',badge:'bln',params:[]},
+  {key:'Ridge',name:'Ridge Regression',      cat:'cln',badge:'bln',params:[{id:'a',l:'alpha',t:'n',def:1.0,s:.1,mn:1e-6}]},
+  {key:'Lasso',name:'Lasso Regression',      cat:'cln',badge:'bln',params:[{id:'a',l:'alpha',t:'n',def:.001,s:.001,mn:1e-6},{id:'mi',l:'max_iter',t:'n',def:1000,s:200,mn:100}]},
+  {key:'EN',   name:'Elastic Net',           cat:'cln',badge:'bln',params:[{id:'a',l:'alpha',t:'n',def:.001,s:.001,mn:1e-6},{id:'l',l:'l1_ratio',t:'n',def:.5,s:.05,mn:0,mx:1},{id:'mi',l:'max_iter',t:'n',def:1000,s:200,mn:100}]},
+  {key:'DTR',  name:'Decision Tree',         cat:'ctr',badge:'btr',params:[{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'ml',l:'min_leaf',t:'n',def:2,s:1,mn:1},{id:'ms',l:'min_split',t:'n',def:2,s:1,mn:2}]},
+  {key:'ABR',  name:'AdaBoost',              cat:'cbo',badge:'bbo',params:[{id:'ne',l:'n_est',t:'n',def:45,s:5,mn:5},{id:'lr',l:'lr',t:'n',def:.35,s:.05,mn:1e-4},{id:'ls',l:'loss',t:'s',def:'exponential',opts:['linear','square','exponential']}]},
+  {key:'GBR',  name:'Gradient Boosting',     cat:'cbo',badge:'bbo',params:[{id:'ne',l:'n_est',t:'n',def:45,s:5,mn:5},{id:'lr',l:'lr',t:'n',def:.35,s:.05,mn:1e-4},{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'sb',l:'subsample',t:'n',def:1.0,s:.05,mn:.1,mx:1}]},
+  {key:'HGBR', name:'Hist GradBoost',        cat:'cbo',badge:'bbo',params:[{id:'lr',l:'lr',t:'n',def:.1,s:.01,mn:1e-4},{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'mi',l:'max_iter',t:'n',def:100,s:10,mn:10},{id:'ml',l:'min_leaf',t:'n',def:20,s:5,mn:1}]},
+  {key:'RFR',  name:'Random Forest',         cat:'cfo',badge:'bfo',params:[{id:'ne',l:'n_est',t:'n',def:45,s:5,mn:5},{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'ml',l:'min_leaf',t:'n',def:1,s:1,mn:1}]},
+  {key:'ETR',  name:'Extra Trees',           cat:'cfo',badge:'bfo',params:[{id:'ne',l:'n_est',t:'n',def:45,s:5,mn:5},{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'ml',l:'min_leaf',t:'n',def:1,s:1,mn:1}]},
+  {key:'BGR',  name:'Bagging',               cat:'cfo',badge:'bfo',params:[{id:'ne',l:'n_est',t:'n',def:45,s:5,mn:5},{id:'ms',l:'max_samp',t:'n',def:1.0,s:.1,mn:.1,mx:1},{id:'mf',l:'max_feat',t:'n',def:1.0,s:.1,mn:.1,mx:1}]},
+  {key:'SVR',  name:'Support Vector (SVR)',  cat:'cot',badge:'bot',params:[{id:'k',l:'kernel',t:'s',def:'rbf',opts:['linear','poly','rbf','sigmoid']},{id:'C',l:'C',t:'n',def:10000,s:1000,mn:.001},{id:'e',l:'epsilon',t:'n',def:10,s:1,mn:1e-6},{id:'dg',l:'degree',t:'n',def:4,s:1,mn:1,mx:10}]},
+  {key:'KNN',  name:'K-Nearest Neighbors',   cat:'cot',badge:'bot',params:[{id:'k',l:'k',t:'n',def:5,s:1,mn:1},{id:'wt',l:'weights',t:'s',def:'uniform',opts:['uniform','distance']},{id:'p',l:'p',t:'n',def:2,s:1,mn:1,mx:5}]},
+  {key:'XGB',  name:'XGBoost',               cat:'cbo',badge:'bbo',params:[{id:'ne',l:'n_est',t:'n',def:45,s:5,mn:5},{id:'md',l:'max_depth',t:'n',def:4,s:1,mn:1,mx:50},{id:'lr',l:'lr',t:'n',def:.35,s:.05,mn:1e-4},{id:'a',l:'alpha',t:'n',def:.2,s:.05,mn:0},{id:'sb',l:'subsample',t:'n',def:1.0,s:.05,mn:.1,mx:1},{id:'cb',l:'col_bt',t:'n',def:1.0,s:.05,mn:.1,mx:1}]},
+  {key:'MLP',  name:'Neural Network (MLP)',  cat:'cot',badge:'bot',params:[{id:'l1',l:'layer1',t:'n',def:100,s:10,mn:1},{id:'l2',l:'layer2',t:'n',def:50,s:10,mn:0},{id:'ac',l:'activation',t:'s',def:'relu',opts:['relu','tanh','logistic','identity']},{id:'al',l:'alpha',t:'n',def:.0001,s:.0001,mn:0},{id:'mi',l:'max_iter',t:'n',def:300,s:50,mn:50}]}
+];
+
+/* ══════════════════════════════════════════
+   BUILD MODEL GRID
+══════════════════════════════════════════ */
+function buildGrid() {
+  const g = $('mgrid');
+  g.innerHTML = MDEFS.map(m => {
+    const params = m.params.length===0
+      ? '<span class="np">no hyperparameters</span>'
+      : '<div class="mp">'+m.params.map(p => {
+          if(p.t==='s'){
+            const opts=p.opts.map(o=>`<option value="${o}"${o===p.def?' selected':''}>${o}</option>`).join('');
+            return `<span class="pu"><span class="pl">${p.l}</span><select id="p-${m.key}-${p.id}">${opts}</select></span>`;
+          }
+          const ex=[p.s?`step="${p.s}"`:'',p.mn!=null?`min="${p.mn}"`:'',p.mx!=null?`max="${p.mx}"`:''].join(' ');
+          return `<span class="pu"><span class="pl">${p.l}</span><input type="number" id="p-${m.key}-${p.id}" value="${p.def}" ${ex}></span>`;
+        }).join('')+'</div>';
+    return `<div class="mr on ${m.cat}" id="mr-${m.key}">
+      <label class="tgl" style="cursor:pointer">
+        <input type="checkbox" id="tg-${m.key}" checked onchange="onTgl('${m.key}',this.checked)">
+        <span class="tsl"></span>
+      </label>
+      <span class="mb ${m.badge}">${m.key}</span>
+      <span class="mn">${m.name}</span>
+      ${params}
+    </div>`;
+  }).join('');
+  updCount();
+}
+
+function onTgl(k, on) {
+  const el=$('mr-'+k), m=MDEFS.find(x=>x.key===k);
+  if(!el) return;
+  el.className = 'mr '+(on?'on '+m.cat:'off');
+  updCount();
+}
+function toggleAll(on) { MDEFS.forEach(m=>{const t=$('tg-'+m.key);if(t){t.checked=on;onTgl(m.key,on);}}); }
+function updCount() { const n=MDEFS.filter(m=>$('tg-'+m.key)?.checked).length; const e=$('ecnt');if(e)e.textContent=n; }
+function resetDef() { MDEFS.forEach(m=>{m.params.forEach(p=>{const e=$(`p-${m.key}-${p.id}`);if(e)e.value=p.def;});const t=$('tg-'+m.key);if(t){t.checked=true;onTgl(m.key,true);}}); }
+function gp(k,id,def){const e=$(`p-${k}-${id}`);if(!e)return def;return e.tagName==='SELECT'?e.value:(parseFloat(e.value)||def);}
+
+/* ══════════════════════════════════════════
+   BUILD MODEL INSTANCE
+══════════════════════════════════════════ */
+function buildModel(key) {
+  switch(key) {
+    case 'LR':   return new LR();
+    case 'Ridge':return new Ridge(gp('Ridge','a',1.0));
+    case 'Lasso':return new Lasso(gp('Lasso','a',.001),gp('Lasso','mi',1000));
+    case 'EN':   return new EN(gp('EN','a',.001),gp('EN','l',.5),gp('EN','mi',1000));
+    case 'DTR':  return new DTR(gp('DTR','md',4),gp('DTR','ml',2),gp('DTR','ms',2),false,1);
+    case 'ABR':  return new ABR(gp('ABR','ne',45),gp('ABR','lr',.35),gp('ABR','ls','exponential'),1);
+    case 'GBR':  return new GBR(gp('GBR','ne',45),gp('GBR','lr',.35),gp('GBR','md',4),gp('GBR','sb',1.0),1);
+    case 'HGBR': return new HGBR(gp('HGBR','lr',.1),gp('HGBR','md',4),gp('HGBR','mi',100),gp('HGBR','ml',20),1);
+    case 'RFR':  return new RFR(gp('RFR','ne',45),gp('RFR','md',4),gp('RFR','ml',1),1);
+    case 'ETR':  return new ETR(gp('ETR','ne',45),gp('ETR','md',4),gp('ETR','ml',1),1);
+    case 'BGR':  return new BGR(gp('BGR','ne',45),gp('BGR','ms',1.0),gp('BGR','mf',1.0),1);
+    case 'SVR':  return new SVR(gp('SVR','k','rbf'),gp('SVR','C',10000),gp('SVR','e',10),gp('SVR','dg',4),1);
+    case 'KNN':  return new KNN(gp('KNN','k',5),gp('KNN','wt','uniform'),gp('KNN','p',2));
+    case 'XGB':  return new XGB(gp('XGB','ne',45),gp('XGB','md',4),gp('XGB','lr',.35),gp('XGB','a',.2),gp('XGB','sb',1.0),gp('XGB','cb',1.0),1);
+    case 'MLP':{ const l1=gp('MLP','l1',100),l2=gp('MLP','l2',50),hl=l2>0?[l1,l2]:[l1];
+                 return new MLP(hl,gp('MLP','ac','relu'),gp('MLP','al',.0001),gp('MLP','mi',300),1); }
+    default: return new LR();
+  }
+}
+
+/* ══════════════════════════════════════════
+   TRAINING
+══════════════════════════════════════════ */
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+async function runTraining() {
+  // ─ Validation ─
+  const ok = splitMode==='auto' ? !!csv.main : (!!csv.train && !!csv.test);
+  if (!ok) {
+    const msg = splitMode==='auto' ? 'Please choose a CSV file first.' : 'Please choose both Train CSV and Test CSV files.';
+    $('emsg').textContent = '⚠ '+msg;
+    clog('⚠ '+msg, 'lw');
+    return;
+  }
+  const todo = MDEFS.filter(m=>$('tg-'+m.key)?.checked);
+  if (!todo.length) { $('emsg').textContent='⚠ Enable at least one model.'; return; }
+  $('emsg').textContent = '';
+
+  // ─ Reset ─
+  aborted=false; results=[]; preds={train:{},test:{},Ytr:[],Yts:[]};
+  splitCSV={headers:[],Xtr:[],Ytr:[],Xts:[],Yts:[]};
+  $('btn-run').disabled=true; $('btn-stop').disabled=false;
+  $('res-wrap').style.display='none';
+  $('no-results-msg').style.display='';
+  setStatus('training');
+
+  // ─ Parse data ─
+  let Xtr,Ytr,Xts,Yts;
+  try {
+    if (splitMode==='auto') {
+      const p=parseCSV(csv.main);
+      if(!p.X.length) throw new Error('No valid rows in dataset');
+      const tsz=parseFloat($('tsz').value||'.20');
+      const rsd=parseInt($('rsd').value||'1');
+      const sp=splitData(p.X,p.y,tsz,rsd);
+      Xtr=sp.Xtr;Ytr=sp.Ytr;Xts=sp.Xts;Yts=sp.Yts;
+      // Store original (unscaled) split data for download
+      splitCSV.headers=p.headers;
+      splitCSV.Xtr=sp.Xtr.map(r=>[...r]); splitCSV.Ytr=[...sp.Ytr];
+      splitCSV.Xts=sp.Xts.map(r=>[...r]); splitCSV.Yts=[...sp.Yts];
+    } else {
+      const tr=parseCSV(csv.train), ts=parseCSV(csv.test);
+      if(!tr.X.length) throw new Error('No valid rows in train.csv');
+      if(!ts.X.length) throw new Error('No valid rows in test.csv');
+      Xtr=tr.X;Ytr=tr.y;Xts=ts.X;Yts=ts.y;
+    }
+    if(Xtr[0].length !== Xts[0].length) throw new Error(`Feature mismatch: train has ${Xtr[0].length} cols, test has ${Xts[0].length}`);
+    clog(`Data ready — train:${Ytr.length}  test:${Yts.length}  features:${Xtr[0].length}`, 'li');
+  } catch(e) {
+    $('emsg').textContent='⚠ '+e.message;
+    clog('Error: '+e.message,'le'); setStatus('error');
+    $('btn-run').disabled=false; $('btn-stop').disabled=true; return;
+  }
+
+  // ─ Scale ─
+  if($('use-sc').checked){const sc=new Scaler().fit(Xtr);Xtr=sc.fit_tr(Xtr);Xts=sc.tr(Xts);}
+  preds.Ytr=[...Ytr]; preds.Yts=[...Yts];
+
+  // ─ Setup progress ─
+  $('tn').textContent=todo.length; $('dn').textContent='0';
+  $('tprog').style.width='0%'; $('pct').textContent='0%';
+  clog(`Training ${todo.length} models: ${todo.map(m=>m.key).join(', ')}`, 'li');
+  const t0=Date.now();
+  const timer=setInterval(()=>{ $('etime').textContent=((Date.now()-t0)/1000).toFixed(1)+'s'; },500);
+  let done=0;
+
+  // ─ Train each model ─
+  for (const m of todo) {
+    if (aborted) { clog('Aborted by user.','lw'); break; }
+    $('cur-m').textContent = 'Training: '+m.name;
+    await sleep(0); // yield to browser for UI update
+
+    const mt = Date.now();
+    try {
+      const model = buildModel(m.key);
+      model.fit(Xtr, Ytr);
+      const ptr=model.predict(Xtr), pts=model.predict(Xts);
+      const rt=((Date.now()-mt)/1000).toFixed(3);
+      results.push({k:m.key,n:m.name,
+        r2tr:+r2(Ytr,ptr).toFixed(4), r2ts:+r2(Yts,pts).toFixed(4),
+        rmtr:+rmse(Ytr,ptr).toFixed(4), rmts:+rmse(Yts,pts).toFixed(4),
+        matr:+mae(Ytr,ptr).toFixed(4),  mats:+mae(Yts,pts).toFixed(4),
+        t:parseFloat(rt), ok:true});
+      preds.train[m.key]=[...ptr]; preds.test[m.key]=[...pts];
+      clog(`✓ ${m.key}  R²=${results[results.length-1].r2ts}  RMSE=${results[results.length-1].rmts}  [${rt}s]`,'lok');
+    } catch(e) {
+      results.push({k:m.key,n:m.name,r2tr:0,r2ts:0,rmtr:0,rmts:0,matr:0,mats:0,t:0,ok:false,err:e.message.slice(0,50)});
+      clog(`✗ ${m.key}: ${e.message}`,'le');
+    }
+
+    done++;
+    const pct=Math.round(done/todo.length*100);
+    $('tprog').style.width=pct+'%'; $('pct').textContent=pct+'%'; $('dn').textContent=done;
+  }
+
+  clearInterval(timer);
+  const tot=((Date.now()-t0)/1000).toFixed(1);
+  $('etime').textContent='Done in '+tot+'s';
+  $('cur-m').textContent = aborted?'Aborted':'All complete ✓';
+  clog(`─── Finished: ${results.filter(r=>r.ok).length} models in ${tot}s ───`,'li');
+  $('btn-run').disabled=false; $('btn-stop').disabled=true;
+  setStatus('ready');
+
+  if (results.filter(r=>r.ok).length > 0) { showResults(); }
+}
+
+/* ══════════════════════════════════════════
+   SHOW RESULTS
+══════════════════════════════════════════ */
+function showResults() {
+  const ok=results.filter(r=>r.ok);
+  if(!ok.length) return;
+  const best=ok.reduce((a,b)=>b.r2ts>a.r2ts?b:a,ok[0]);
+  const sorted=[...ok].sort((a,b)=>b.r2ts-a.r2ts);
+  const all=[...results].sort((a,b)=>{if(a.ok&&!b.ok)return -1;if(!a.ok&&b.ok)return 1;return b.r2ts-a.r2ts;});
+
+  // KPI cards
+  const bp=preds.test[best.k]||[];
+  const errs=bp.map((p,i)=>Math.abs(p-preds.Yts[i]));
+  const p05=errs.length?Math.round(100*errs.filter(e=>e<.5).length/errs.length):0;
+  const p10=errs.length?Math.round(100*errs.filter(e=>e<1.0).length/errs.length):0;
+  $('kpis').innerHTML=[
+    {l:'Best Model',  v:best.k,      s:best.n,             c:'#1b5e20',bg:'#f0faf1',bt:'#43a047'},
+    {l:'R² Test',     v:best.r2ts,   s:'Train: '+best.r2tr,c:'#1a3a6b',bg:'#e8f0fe',bt:'#1a4a6b'},
+    {l:'RMSE Test',   v:best.rmts,   s:'MAE: '+best.mats,  c:'#6b3d09',bg:'#fef3e2',bt:'#f59400'},
+    {l:'Within ±0.5', v:p05+'%',     s:'of test preds',    c:'#1a1a2e',bg:'#f0f2f5',bt:'#0d2d4a'},
+    {l:'Within ±1.0', v:p10+'%',     s:'of test preds',    c:'#1a1a2e',bg:'#f0f2f5',bt:'#0d2d4a'},
+  ].map(k=>`<div class="kc" style="border-top:3px solid ${k.bt};background:${k.bg}">
+    <div class="kl">${k.l}</div>
+    <div class="kv" style="color:${k.c};font-size:${String(k.v).length>6?'16':'19'}px">${k.v}</div>
+    <div class="ks">${k.s}</div></div>`).join('');
+
+  // Table
+  renderTbl(all,best.k);
+
+  // Charts
+  buildCharts(sorted,best);
+
+  // Show section — switch to Results tab
+  $('no-results-msg').style.display='none';
+  $('res-wrap').style.display='';
+  // Show/hide split dataset download buttons
+  const hasSplit = splitMode==='auto' && splitCSV.Xtr.length>0;
+  $('btn-dl-split-train').style.display = hasSplit ? '' : 'none';
+  $('btn-dl-split-test').style.display  = hasSplit ? '' : 'none';
+  showTab(1);
+}
+
+/* ══════════════════════════════════════════
+   TABLE
+══════════════════════════════════════════ */
+function renderTbl(rows, bestKey) {
+  const r2bg=v=>v>=.99?['#C8E6C9','#1B5E20']:v>=.97?['#DCEDC8','#33691E']:v>=.95?['#F9FBE7','#558B2F']:v>=.90?['#FFF9C4','#F57F17']:v>=0?['#FFE0B2','#E65100']:['#FFCDD2','#B71C1C'];
+  $('rtbody').innerHTML = rows.map((r,i)=>{
+    const isBest=r.k===bestKey, isErr=!r.ok;
+    const bg=isBest?'#e6f4ea':i%2?'#f7f8fc':'#fff';
+    const [r2b,r2f]=r2bg(r.r2ts);
+    return `<tr class="${isBest?'best':''}" style="background:${bg}">
+      <td style="text-align:center;color:#5a6072">${i+1}</td>
+      <td style="font-weight:${isBest?700:600};color:${isBest?'#1b5e20':'#1a1a2e'}">${r.k}${isBest?'<span class="bb">★ Best</span>':''}${isErr?'<span class="be">ERR</span>':''}</td>
+      <td style="color:#5a6072;font-size:11px">${r.n}</td>
+      <td style="text-align:center">${r.r2tr}</td>
+      <td style="text-align:center;background:${r2b};color:${r2f};font-weight:700">${r.r2ts}</td>
+      <td style="text-align:center">${r.rmtr}</td>
+      <td style="text-align:center">${r.rmts}</td>
+      <td style="text-align:center">${r.matr}</td>
+      <td style="text-align:center">${r.mats}</td>
+      <td style="text-align:center;color:#5a6072">${r.t}s${isErr?` <span style="color:#e53935;font-size:9px">${r.err||''}</span>`:''}</td>
+    </tr>`;
+  }).join('');
+}
+
+let _sdir={};
+function srt(col){
+  _sdir[col]=!_sdir[col];
+  const ok=results.filter(r=>r.ok);if(!ok.length)return;
+  const best=ok.reduce((a,b)=>b.r2ts>a.r2ts?b:a,ok[0]);
+  const all=[...results].sort((a,b)=>{
+    const av=a[col]??0,bv=b[col]??0;
+    return typeof av==='number'?(_sdir[col]?bv-av:av-bv):(_sdir[col]?String(bv).localeCompare(String(av)):String(av).localeCompare(String(bv)));
+  });
+  renderTbl(all,best.k);
+}
+function filterTbl(q){document.querySelectorAll('#rtbody tr').forEach(r=>{r.style.display=r.cells[1].textContent.toLowerCase().includes(q.toLowerCase())?'':'none';});}
+
+/* ══════════════════════════════════════════
+   CHARTS
+══════════════════════════════════════════ */
+const G='#eaecf2',T='#5a6072',F={family:'Calibri',size:10};
+const bc={responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{labels:{color:T,font:F,boxWidth:12}}},
+  scales:{x:{ticks:{color:T,font:F,maxRotation:38},grid:{color:G}},y:{ticks:{color:T,font:F},grid:{color:G}}}};
+
+function mkChart(id,type,data,opts){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),{type,data,options:opts});}
+
+function buildCharts(sorted,best){
+  const L=sorted.map(r=>r.k);
+  mkChart('ch-r2','bar',{labels:L,datasets:[
+    {label:'R² Train',data:sorted.map(r=>r.r2tr),backgroundColor:'#1a4a6b44',borderColor:'#1a4a6b',borderWidth:1.5,borderRadius:3},
+    {label:'R² Test', data:sorted.map(r=>r.r2ts),backgroundColor:'#43a04744',borderColor:'#43a047',borderWidth:1.5,borderRadius:3}
+  ]},bc);
+  mkChart('ch-rmse','bar',{labels:L,datasets:[
+    {label:'RMSE Train',data:sorted.map(r=>r.rmtr),backgroundColor:'#e8a02044',borderColor:'#e8a020',borderWidth:1.5,borderRadius:3},
+    {label:'RMSE Test', data:sorted.map(r=>r.rmts),backgroundColor:'#e5393544',borderColor:'#e53935',borderWidth:1.5,borderRadius:3}
+  ]},bc);
+  mkChart('ch-mae','bar',{labels:L,datasets:[
+    {label:'MAE Train',data:sorted.map(r=>r.matr),backgroundColor:'#7e57c244',borderColor:'#7e57c2',borderWidth:1.5,borderRadius:3},
+    {label:'MAE Test', data:sorted.map(r=>r.mats),backgroundColor:'#e8a02044',borderColor:'#e8a020',borderWidth:1.5,borderRadius:3}
+  ]},bc);
+  const gaps=sorted.map(r=>Math.max(0,r.r2tr-r.r2ts));
+  mkChart('ch-gap','bar',{labels:L,datasets:[{label:'R² gap',data:gaps,
+    backgroundColor:gaps.map(g=>g>.15?'#e5393544':g>.05?'#e8a02044':'#43a04744'),
+    borderColor:gaps.map(g=>g>.15?'#e53935':g>.05?'#e8a020':'#43a047'),borderWidth:1.5,borderRadius:3}]},bc);
+  const hbc={...bc,indexAxis:'y',scales:{x:{ticks:{color:T,font:F},grid:{color:G}},y:{ticks:{color:T,font:F},grid:{color:G}}}};
+  mkChart('ch-tm','bar',{labels:sorted.map(r=>r.k),datasets:[{label:'Time(s)',data:sorted.map(r=>r.t),backgroundColor:'#5a607244',borderColor:'#5a6072',borderWidth:1.5,borderRadius:3}]},hbc);
+  if(preds.test[best.k]){
+    const act=preds.Yts,pred=preds.test[best.k];
+    const mn=Math.min(...act,...pred),mx=Math.max(...act,...pred);
+    mkChart('ch-sc','scatter',{datasets:[
+      {label:best.k+' predictions',data:act.map((a,i)=>({x:a,y:pred[i]})),backgroundColor:'#1a4a6b55',borderColor:'#1a4a6b',pointRadius:3.5},
+      {label:'Perfect fit',data:[{x:mn,y:mn},{x:mx,y:mx}],type:'line',borderColor:'#43a047',borderDash:[5,4],pointRadius:0,borderWidth:1.5,backgroundColor:'transparent'}
+    ]},{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:T,font:F,boxWidth:12}}},
+      scales:{x:{title:{display:true,text:'Actual',color:T},ticks:{color:T,font:F},grid:{color:G}},
+              y:{title:{display:true,text:'Predicted',color:T},ticks:{color:T,font:F},grid:{color:G}}}});
+  }
+}
+
+/* ══════════════════════════════════════════
+   DOWNLOADS
+══════════════════════════════════════════ */
+function dl(name,txt){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download=name;a.click();}
+function dlRes(){if(!results.length)return;dl('ml_results.csv',['Model,Name,R2_Train,R2_Test,RMSE_Train,RMSE_Test,MAE_Train,MAE_Test,Time_s,Status',...results.map(r=>`${r.k},${r.n},${r.r2tr},${r.r2ts},${r.rmtr},${r.rmts},${r.matr},${r.mats},${r.t},${r.ok?'OK':'ERROR'}`)].join('\n'));}
+function dlPredTs(){if(!preds.Yts.length)return;const ms=Object.keys(preds.test);dl('predictions_test.csv',[['Actual',...ms].join(','),...preds.Yts.map((y,i)=>[y,...ms.map(m=>preds.test[m]?.[i]??'')].join(','))].join('\n'));}
+function dlPredTr(){if(!preds.Ytr.length)return;const ms=Object.keys(preds.train);dl('predictions_train.csv',[['Actual',...ms].join(','),...preds.Ytr.map((y,i)=>[y,...ms.map(m=>preds.train[m]?.[i]??'')].join(','))].join('\n'));}
+function dlSplitTrain(){
+  if(!splitCSV.Xtr.length)return;
+  const h=splitCSV.headers.join(',');
+  const rows=splitCSV.Xtr.map((r,i)=>[...r,splitCSV.Ytr[i]].join(','));
+  dl('split_train.csv',[h,...rows].join('\n'));
+}
+function dlSplitTest(){
+  if(!splitCSV.Xts.length)return;
+  const h=splitCSV.headers.join(',');
+  const rows=splitCSV.Xts.map((r,i)=>[...r,splitCSV.Yts[i]].join(','));
+  dl('split_test.csv',[h,...rows].join('\n'));
+}
+
+/* ══════════════════════════════════════════
+   CODE GENERATOR
+══════════════════════════════════════════ */
+function minst(key){
+  switch(key){
+    case 'LR':   return 'LinearRegression()';
+    case 'Ridge':return `Ridge(alpha=${gp('Ridge','a',1.0)})`;
+    case 'Lasso':return `Lasso(alpha=${gp('Lasso','a',.001)},max_iter=${gp('Lasso','mi',5000)},random_state=1)`;
+    case 'EN':   return `ElasticNet(alpha=${gp('EN','a',.001)},l1_ratio=${gp('EN','l',.5)},max_iter=${gp('EN','mi',5000)},random_state=1)`;
+    case 'DTR':  return `DecisionTreeRegressor(max_depth=${gp('DTR','md',4)},min_samples_leaf=${gp('DTR','ml',2)},min_samples_split=${gp('DTR','ms',2)},random_state=1)`;
+    case 'ABR':  return `AdaBoostRegressor(n_estimators=${gp('ABR','ne',45)},learning_rate=${gp('ABR','lr',.35)},loss='${gp('ABR','ls','exponential')}',random_state=1)`;
+    case 'GBR':  return `GradientBoostingRegressor(n_estimators=${gp('GBR','ne',45)},learning_rate=${gp('GBR','lr',.35)},max_depth=${gp('GBR','md',4)},subsample=${gp('GBR','sb',1.0)},random_state=1)`;
+    case 'HGBR': return `HistGradientBoostingRegressor(learning_rate=${gp('HGBR','lr',.1)},max_depth=${gp('HGBR','md',4)},max_iter=${gp('HGBR','mi',100)},min_samples_leaf=${gp('HGBR','ml',20)},random_state=1)`;
+    case 'RFR':  return `RandomForestRegressor(n_estimators=${gp('RFR','ne',45)},max_depth=${gp('RFR','md',4)},min_samples_leaf=${gp('RFR','ml',1)},random_state=1,n_jobs=-1)`;
+    case 'ETR':  return `ExtraTreesRegressor(n_estimators=${gp('ETR','ne',45)},max_depth=${gp('ETR','md',4)},min_samples_leaf=${gp('ETR','ml',1)},random_state=1,n_jobs=-1)`;
+    case 'BGR':  return `BaggingRegressor(n_estimators=${gp('BGR','ne',45)},max_samples=${gp('BGR','ms',1.0)},max_features=${gp('BGR','mf',1.0)},random_state=1)`;
+    case 'SVR':  return `SVR(kernel='${gp('SVR','k','rbf')}',C=${gp('SVR','C',10000)},epsilon=${gp('SVR','e',10)},degree=${gp('SVR','dg',4)},gamma='scale')`;
+    case 'KNN':  return `KNeighborsRegressor(n_neighbors=${gp('KNN','k',5)},weights='${gp('KNN','wt','uniform')}',p=${gp('KNN','p',2)})`;
+    case 'XGB':  return `xgb.XGBRegressor(n_estimators=${gp('XGB','ne',45)},max_depth=${gp('XGB','md',4)},learning_rate=${gp('XGB','lr',.35)},alpha=${gp('XGB','a',.2)},subsample=${gp('XGB','sb',1.0)},colsample_bytree=${gp('XGB','cb',1.0)},random_state=1,verbosity=0)`;
+    case 'MLP':{ const l1=gp('MLP','l1',100),l2=gp('MLP','l2',50),hl=l2>0?`(${l1},${l2})`:`(${l1},)`;
+                 return `MLPRegressor(hidden_layer_sizes=${hl},activation='${gp('MLP','ac','relu')}',alpha=${gp('MLP','al',.0001)},max_iter=5000,random_state=1)`; }
+    default: return 'LinearRegression()';
+  }
+}
+
+function refreshCode(){
+  const todo=MDEFS.filter(m=>$('tg-'+m.key)?.checked);
+  const tsz=$('tsz')?.value||'.20', rsd=$('rsd')?.value||'1', shuf=$('shuf')?.value||'true';
+  const useSc=$('use-sc')?.checked??true;
+  const mLines=todo.map(m=>`    '${m.key}': ${minst(m.key)},`).join('\n');
+  const splitBlk=splitMode==='auto'?`
+df = pd.read_excel('data.xlsx', sheet_name='M')
+X  = df.iloc[:, :-1].values
+Y  = df.iloc[:, -1].values
+X_train,X_test,Y_train,Y_test = train_test_split(X,Y,test_size=${tsz},random_state=${rsd},shuffle=${shuf==='true'?'True':'False'})`
+:`
+df_tr = pd.read_csv('train.csv')
+df_ts = pd.read_csv('test.csv')
+X_train = df_tr.iloc[:,:-1].values.astype(float)
+Y_train = df_tr.iloc[:,-1].values.astype(float)
+X_test  = df_ts.iloc[:,:-1].values.astype(float)
+Y_test  = df_ts.iloc[:,-1].values.astype(float)`;
+  const scBlk=useSc?`\nscaler=StandardScaler()\nX_train=scaler.fit_transform(X_train)\nX_test=scaler.transform(X_test)`:'# Scaling disabled';
+
+  $('codepre').textContent=`# ML Workbench — Auto-Generated Script
+# Models: ${todo.map(m=>m.key).join(', ')}  |  Split: ${splitMode}  |  Scaler: ${useSc?'StandardScaler':'None'}
+
+from google.colab import drive; drive.mount('/content/gdrive')
+import pandas as pd, numpy as np, joblib, time, warnings
+warnings.filterwarnings('ignore')
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score,mean_squared_error,mean_absolute_error
+from sklearn.linear_model import LinearRegression,Ridge,Lasso,ElasticNet
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import (AdaBoostRegressor,GradientBoostingRegressor,
+    HistGradientBoostingRegressor,RandomForestRegressor,
+    ExtraTreesRegressor,BaggingRegressor)
+from sklearn.svm import SVR
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neural_network import MLPRegressor
+import xgboost as xgb
+${splitBlk}
+${scBlk}
+
+models = {
+${mLines}
+}
+
+res={}
+for name,model in models.items():
+    t0=time.time(); model.fit(X_train,Y_train)
+    p_tr=model.predict(X_train); p_ts=model.predict(X_test)
+    res[name]={'R2_Train':round(r2_score(Y_train,p_tr),4),
+               'R2_Test' :round(r2_score(Y_test,p_ts),4),
+               'RMSE_Test':round(float(np.sqrt(mean_squared_error(Y_test,p_ts))),4),
+               'MAE_Test' :round(mean_absolute_error(Y_test,p_ts),4),
+               'Time_s'   :round(time.time()-t0,3)}
+
+df_res=pd.DataFrame(res).T.reset_index().rename(columns={'index':'Model'})
+print(df_res.sort_values('R2_Test',ascending=False).to_string(index=False))
+df_res.to_excel('Model_Results.xlsx',index=False)
+
+best=df_res.loc[df_res['R2_Test'].idxmax(),'Model']
+print(f'Best: {best}  R2_test={res[best]["R2_Test"]}')
+joblib.dump(models[best],f'{best}_model.joblib')`;
+
+  $('cfg-sum').innerHTML=[
+    ['Split',splitMode==='auto'?'Automatic':'Manual'],
+    ['Test Size',tsz],['Seed',rsd],
+    ['Scaler',useSc?'StandardScaler':'None'],
+    ['Models',todo.length+'/'+MDEFS.length],
+    ['Active Keys',todo.map(m=>m.key).join(', ')],
+  ].map(([k,v])=>`<div><div class="ci-l">${k}</div><div class="ci-v">${v}</div></div>`).join('');
+}
+function copyCode(){const b=$('cpbtn');navigator.clipboard.writeText($('codepre').textContent).then(()=>{b.textContent='✓ Copied!';setTimeout(()=>b.textContent='⧉ Copy',2000);});}
+function dlCode(){dl('ml_script.py',$('codepre').textContent);}
+
+/* ══════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════ */
+buildGrid();
+showSplit();
+setStatus('ready');
+</script>
+</body>
+</html>
